@@ -1,11 +1,13 @@
-import express from "express";
-import cookieParser from "cookie-parser";
-import cors from "cors";
-import { connectDB } from "./config/db";
-import { config } from "./config/env";
-import morgan from "morgan";
-import helmet from "helmet";
-import logger from "./utils/logger";
+import express from 'express';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import { config } from './config/env';
+import morgan from 'morgan';
+import helmet from 'helmet';
+import logger from './utils/logger';
+import { connectDB } from './infrastructure/database/connection';
+import router from './interface/routes';
+import { errorHandler } from './interface/middlewares/errorHandler.middleware';
 
 const app = express();
 
@@ -14,25 +16,28 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
     origin: config.APP_ORIGIN,
-    credentials: true,
+    credentials: true
   })
 );
 app.use(cookieParser());
 app.use(helmet());
 
 // Setup request logging
-const morganFormat = process.env.NODE_ENV === "production" ? "combined" : "dev";
+const morganFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
 app.use(
   morgan(morganFormat, {
     stream: {
-      write: (message) => logger.http(message.trim()),
-    },
+      write: (message) => logger.http(message.trim())
+    }
   })
 );
 
+app.use(`${config.BASE_PATH}`, router);
+app.use(errorHandler);
+
 app.listen(config.PORT, async () => {
   logger.info(
-    `Server is running on port ${config.PORT} on ${config.NODE_ENV} mode`
+    `Server is running on port http://localhost:${config.PORT}${config.BASE_PATH} on ${config.NODE_ENV} mode`
   );
   await connectDB();
 });
