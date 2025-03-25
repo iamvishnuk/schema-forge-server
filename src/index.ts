@@ -8,6 +8,8 @@ import logger from './utils/logger';
 import { connectDB } from './infrastructure/database/connection';
 import router from './interface/routes';
 import { errorHandler } from './interface/middlewares/errorHandler.middleware';
+import { AppError } from './utils/appError';
+import passport from './interface/middlewares/passport.middleware';
 
 const app = express();
 
@@ -20,6 +22,7 @@ app.use(
   })
 );
 app.use(cookieParser());
+app.use(passport.initialize());
 app.use(helmet());
 
 // Setup request logging
@@ -33,6 +36,12 @@ app.use(
 );
 
 app.use(`${config.BASE_PATH}`, router);
+
+app.all('*', (req, res, next) => {
+  const err = new AppError(`Cannot ${req.method} ${req.originalUrl}`, 404);
+  next(err);
+});
+
 app.use(errorHandler);
 
 app.listen(config.PORT, async () => {

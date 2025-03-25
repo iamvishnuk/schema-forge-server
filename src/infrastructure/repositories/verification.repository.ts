@@ -4,12 +4,13 @@ import { VerificationCodeModel } from '../models/verificationCode.model';
 
 export class VerificationCodeImpl implements VerificationRepository {
   countVerificationCodes(
-    verification: Pick<VerificationCodeEntity, 'userId' | 'type' | 'createdAt'>
+    verification: Pick<VerificationCodeEntity, 'userId' | 'type'>,
+    createdAtQuery?: { $gt?: Date; $lt?: Date }
   ): Promise<number> {
     return VerificationCodeModel.countDocuments({
       userId: verification.userId,
       type: verification.type,
-      createdAt: verification.createdAt
+      ...(createdAtQuery ? { createdAt: createdAtQuery } : {})
     });
   }
 
@@ -19,13 +20,13 @@ export class VerificationCodeImpl implements VerificationRepository {
     return VerificationCodeModel.create(verification);
   }
 
-  findVerificationCode(
-    verification: Pick<VerificationCodeEntity, 'code' | 'type' | 'expiresAt'>
+  findUnExpiredVerificationCode(
+    verification: Pick<VerificationCodeEntity, 'code' | 'type'>
   ): Promise<VerificationCodeEntity | null> {
     return VerificationCodeModel.findOne({
       code: verification.code,
       type: verification.type,
-      expiresAt: verification.expiresAt
+      expiresAt: { $gt: new Date() }
     });
   }
 

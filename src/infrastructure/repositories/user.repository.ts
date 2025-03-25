@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { UserEntity } from '../../core/entities/user.entity';
 import { UserRepository } from '../../core/interfaces/user.repository';
 import { UserModel } from '../models/user.model';
@@ -14,7 +15,7 @@ export class UserRepositoryImpl implements UserRepository {
   }
 
   async findByIdAndUpdate(
-    id: string,
+    id: mongoose.Types.ObjectId,
     data: Partial<UserEntity>
   ): Promise<UserEntity | null> {
     return UserModel.findByIdAndUpdate(id, data, { new: true });

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { UserEntity } from '../entities/user.entity';
 
 // user repository interface
@@ -7,7 +8,7 @@ export interface UserRepository {
   ): Promise<UserEntity>;
   findByEmail(email: string): Promise<UserEntity | null>;
   findByIdAndUpdate(
-    id: string,
+    id: mongoose.Types.ObjectId,
     user: Partial<UserEntity>
   ): Promise<UserEntity | null>;
   findById(id: string): Promise<UserEntity | null>;
