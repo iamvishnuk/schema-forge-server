@@ -1,0 +1,12 @@
+import { UserEntity } from '../../core/entities/user.entity';
+import 'express';
+
+declare global {
+  namespace Express {
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+    interface User extends UserEntity {}
+    interface Request {
+      sessionId?: string;
+    }
+  }
+}

@@ -3,7 +3,7 @@ import { SessionEntity } from '../../core/entities/session.entity';
 import { thirtyDaysFromNow } from '../../utils/date-time';
 
 export interface SessionDocument
-  extends Omit<SessionEntity, '_id' | 'save'>,
+  extends Omit<SessionEntity, '_id' | 'save' | 'toObject'>,
     Document {}
 
 const SessionSchema = new Schema<SessionDocument>({

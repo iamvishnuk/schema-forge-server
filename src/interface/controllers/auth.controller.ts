@@ -117,8 +117,6 @@ export class AuthController {
   public logout = asyncHandler(async (req: Request, res: Response) => {
     const { sessionId } = req;
 
-    console.log('sessionId ==>', sessionId);
-
     if (!sessionId) {
       throw new NotFoundError('Session not found');
     }
