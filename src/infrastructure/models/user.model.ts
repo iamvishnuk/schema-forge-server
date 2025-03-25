@@ -8,7 +8,9 @@ const userPreferencesSchema = new Schema<UserPreferences>({
   twoFactorSecret: { type: String, required: false }
 });
 
-export interface UserDocument extends Omit<UserEntity, '_id'>, Document {}
+export interface UserDocument
+  extends Omit<UserEntity, '_id' | 'save'>,
+    Document {}
 
 const UserSchema = new Schema<UserDocument>(
   {

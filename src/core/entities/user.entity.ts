@@ -14,4 +14,5 @@ export interface UserEntity {
   updatedAt?: Date;
   createdAt?: Date;
   comparePassword(value: string): Promise<boolean>;
+  save(): Promise<UserEntity>;
 }
