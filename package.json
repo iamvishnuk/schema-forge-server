@@ -27,12 +27,14 @@
     "morgan": "^1.10.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "qrcode": "^1.5.4",
     "resend": "^4.1.2",
+    "speakeasy": "^2.0.0",
+    "tsconfig-paths": "^4.2.0",
     "uuid": "^11.1.0",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "zod": "^3.24.2",
-    "tsconfig-paths": "^4.2.0"
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.0",
@@ -46,6 +48,8 @@
     "@types/morgan": "^1.9.9",
     "@types/passport": "^1.0.17",
     "@types/passport-jwt": "^4.0.1",
+    "@types/qrcode": "^1.5.5",
+    "@types/speakeasy": "^2.0.10",
     "eslint": "^9.22.0",
     "globals": "^16.0.0",
     "husky": "^9.1.7",
