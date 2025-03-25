@@ -1,5 +1,5 @@
-import 'express';
 import { UserEntity } from '../../core/entities/user.entity';
+import 'express';
 
 declare global {
   namespace Express {

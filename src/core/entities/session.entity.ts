@@ -7,4 +7,5 @@ export interface SessionEntity {
   expiredAt: Date;
   createdAt: Date;
   save: () => Promise<SessionEntity>;
+  toObject: () => SessionEntity;
 }
