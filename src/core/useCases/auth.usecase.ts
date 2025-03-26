@@ -26,7 +26,9 @@ import {
 } from '../../utils/jwt';
 import {
   BadRequestError,
+  ConflictError,
   InternalServerError,
+  NotFoundError,
   TooManyRequests,
   UnauthorizedError
 } from '../../utils/error';
@@ -53,7 +55,7 @@ export class AuthUseCase {
     const existingUser = await this.userRepository.findByEmail(user.email);
 
     if (existingUser) {
-      throw new Error('User with this email already exists');
+      throw new ConflictError('User with this email already exists');
     }
 
     // Create the new user in the database
@@ -101,13 +103,13 @@ export class AuthUseCase {
     const user = await this.userRepository.findByEmail(data.email);
 
     if (!user) {
-      throw new Error('Invalid email or password');
+      throw new BadRequestError('Invalid email or password');
     }
 
     // Verify password against stored hash
     const isPasswordMatch = await user.comparePassword(data.password);
     if (!isPasswordMatch) {
-      throw new Error('Invalid email or password');
+      throw new BadRequestError('Invalid email or password');
     }
 
     // If user has 2FA enabled, return early without tokens
@@ -265,7 +267,7 @@ export class AuthUseCase {
     const user = await this.userRepository.findByEmail(email);
 
     if (!user) {
-      throw new BadRequestError('User not found');
+      throw new NotFoundError('User not found');
     }
 
     // Define rate limiting parameters

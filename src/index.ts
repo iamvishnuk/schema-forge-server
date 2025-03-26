@@ -10,6 +10,8 @@ import router from './interface/routes';
 import { errorHandler } from './interface/middlewares/errorHandler.middleware';
 import { AppError } from './utils/appError';
 import passport from './interface/middlewares/passport.middleware';
+import swaggerUi from 'swagger-ui-express';
+import YAML from 'yamljs';
 
 const app = express();
 
@@ -36,6 +38,11 @@ app.use(
 );
 
 app.use(`${config.BASE_PATH}`, router);
+app.use(
+  '/api-docs',
+  swaggerUi.serve,
+  swaggerUi.setup(YAML.load('./swagger.yaml'))
+);
 
 app.all('*', (req, res, next) => {
   const err = new AppError(`Cannot ${req.method} ${req.originalUrl}`, 404);
@@ -48,5 +55,6 @@ app.listen(config.PORT, async () => {
   logger.info(
     `Server is running on port http://localhost:${config.PORT}${config.BASE_PATH} on ${config.NODE_ENV} mode`
   );
+  logger.info(`Swagger is running on http://localhost:${config.PORT}/api-docs`);
   await connectDB();
 });
