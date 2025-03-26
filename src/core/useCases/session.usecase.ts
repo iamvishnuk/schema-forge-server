@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { NotFoundError } from '../../utils/error';
+import { NotFoundError, UnauthorizedError } from '../../utils/error';
 import { SessionEntity } from '../entities/session.entity';
 import { UserEntity } from '../entities/user.entity';
 import { SessionRepository } from '../interfaces/session.repository';
@@ -29,7 +29,7 @@ export class SessionUseCase {
       await this.sessionRepository.findCurrentSessionById(sessionId);
 
     if (!session) {
-      throw new NotFoundError('Session not found');
+      throw new UnauthorizedError('Session not found');
     }
     const user = session.userId;
 
