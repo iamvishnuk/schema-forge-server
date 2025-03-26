@@ -1,3 +1,10 @@
 {
-  "cSpell.words": ["atleast", "atmost", "HTTPSTATUS", "usecase"]
+  "cSpell.words": [
+    "atleast",
+    "atmost",
+    "HTTPSTATUS",
+    "otpauth",
+    "qrcode",
+    "usecase"
+  ]
 }
