@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import {
+  ITeamWithDetails,
   MemberStatusEnum,
   TeamEntity,
   TeamRoleEnum
@@ -73,7 +74,7 @@ export class TeamUseCase {
    * This method casts the string userId to a mongoose ObjectId before querying the repository
    */
   async getAllUserTeams(userId: string): Promise<TeamEntity[]> {
-    return this.teamRepository.getAllUserTeams(
+    return await this.teamRepository.getAllUserTeams(
       userId as unknown as mongoose.Types.ObjectId
     );
   }
@@ -130,5 +131,27 @@ export class TeamUseCase {
     }
 
     return;
+  }
+
+  /**
+   * Retrieves a team by its ID, ensuring the requesting user has access
+   *
+   * @param teamId - The unique identifier of the team to retrieve
+   * @param userId - The ID of the user requesting the team information
+   * @returns A promise that resolves to the team with detailed information
+   * @throws ForbiddenError if the user doesn't have access to the requested team
+   */
+  async getTeamById(teamId: string, userId: string): Promise<ITeamWithDetails> {
+    const team = await this.teamRepository.getTeamById(teamId, userId);
+
+    if (!team) {
+      // Instead of creating an object, directly throw the error
+      throw new ForbiddenError(
+        'Team not found or you do not have access to it',
+        403
+      );
+    }
+
+    return team;
   }
 }

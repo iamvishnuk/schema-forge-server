@@ -61,4 +61,18 @@ export class TeamController {
     await this.teamUseCase.deleteTeam(teamId);
     ResponseHandler.success(res, {}, HTTPSTATUS.OK, 'Team deleted');
   });
+
+  public getTeamById = asyncHandler(async (req: Request, res: Response) => {
+    const { teamId } = req.params;
+    const userId = req?.user?._id as string;
+
+    const team = await this.teamUseCase.getTeamById(teamId, userId);
+
+    ResponseHandler.success(
+      res,
+      team,
+      HTTPSTATUS.OK,
+      'Team fetched successfully'
+    );
+  });
 }

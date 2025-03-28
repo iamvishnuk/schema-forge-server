@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { UserEntity } from './user.entity';
 
 export interface TeamEntity {
   _id: string | unknown;
@@ -31,4 +32,10 @@ export enum MemberStatusEnum {
   PENDING = 'pending',
   INVITED = 'invited',
   SUSPENDED = 'suspended'
+}
+
+export interface ITeamWithDetails
+  extends Omit<TeamEntity, 'createdBy' | 'members' | 'save'> {
+  createdBy: Partial<UserEntity>;
+  members: Array<Omit<ITeamMember, 'userId'> & { userId: Partial<UserEntity> }>;
 }
