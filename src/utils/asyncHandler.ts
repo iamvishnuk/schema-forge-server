@@ -12,13 +12,8 @@ type AsyncControllerFn = (
 export const asyncHandler = (fn: AsyncControllerFn) => {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch((error) => {
-      if (error instanceof Error) {
-        if (error.message === 'User not found') {
-          return next(new AppError(error.message, 404));
-        } else if (error.message === 'User with this email already exists') {
-          return next(new AppError(error.message, 409));
-        }
-        next(new AppError(error.message, 400));
+      if (error instanceof AppError) {
+        return next(error);
       } else {
         next(new AppError('An Unknown error occurred', 500));
       }
