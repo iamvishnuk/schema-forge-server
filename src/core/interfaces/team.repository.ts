@@ -1,5 +1,5 @@
-import mongoose from 'mongoose';
-import { TeamEntity } from '../entities/teams.entity';
+import mongoose, { Aggregate } from 'mongoose';
+import { ITeamWithDetails, TeamEntity } from '../entities/teams.entity';
 
 export interface TeamRepository {
   create(data: Partial<TeamEntity>): Promise<TeamEntity>;
@@ -11,4 +11,8 @@ export interface TeamRepository {
     data: Partial<TeamEntity>
   ): Promise<TeamEntity | null>;
   findByIdAndDelete(id: string): Promise<TeamEntity | null>;
+  getTeamById(
+    teamId: string,
+    userId: string
+  ): Promise<Aggregate<ITeamWithDetails> | null>;
 }
