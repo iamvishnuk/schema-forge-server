@@ -11,6 +11,12 @@ const teamRoutes = Router();
 const teamController = new TeamController();
 
 teamRoutes.get('/user-teams', authenticateJWT, teamController.getUserTeams);
+teamRoutes.get(
+  '/:teamId',
+  authenticateJWT,
+  validateParams(TeamIdSchema),
+  teamController.getTeamById
+);
 
 teamRoutes.post(
   '/create',

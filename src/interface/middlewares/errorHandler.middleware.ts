@@ -1,50 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextFunction, Request, Response } from 'express';
-import { AppError } from '../../utils/appError';
 import logger from '../../utils/logger';
+import { HTTPSTATUS } from '../../config/http.config';
 import { config } from '../../config/env';
 
-const handleCastErrorDB = (err: any): AppError => {
-  const message = `Invalid ${err.path}: ${err.value}`;
-  return new AppError(message, 400);
-};
-
-const handleDuplicateFieldsDB = (err: any): AppError => {
-  const value = err.message.match(/(["'])(\\?.)*?\1/);
-  const message = `Duplicate field value: ${value}`;
-  return new AppError(message, 400);
-};
-
-const handleValidationErrorDB = (err: any): AppError => {
-  const errors = Object.values(err.errors).map((el: any) => el.message);
-  const message = `Invalid input data. ${errors.join('. ')}`;
-  return new AppError(message, 400);
-};
-
-const handleJWTError = (): AppError =>
-  new AppError('Invalid token. Please log in again!', 401);
-
-const handleJWTExpiredError = (): AppError =>
-  new AppError('Your token has expired! Please log in again.', 401);
-
-const sendErrorDev = (err: AppError, res: Response): void => {
-  res.status(err.statusCode).json({
-    status: err.status,
+const sendErrorDev = (err: any, res: Response): void => {
+  res.status(err.statusCode || HTTPSTATUS.INTERNAL_SERVER_ERROR).json({
+    status: err.status || 'error',
     error: err,
     message: err.message,
     stack: err.stack
   });
 };
 
-const sendErrorProd = (err: AppError, res: Response): void => {
+const sendErrorProd = (err: any, res: Response): void => {
+  // Operational, trusted error: send message to client
   if (err.isOperational) {
     res.status(err.statusCode).json({
       status: err.status,
       message: err.message
     });
   } else {
+    // Programming or other unknown error: don't leak error details
     logger.error('ERROR 💥', err);
-    res.status(500).json({
+    res.status(HTTPSTATUS.INTERNAL_SERVER_ERROR).json({
       status: 'error',
       message: 'Something went very wrong!'
     });
@@ -57,7 +36,30 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ): void => {
-  err.statusCode = err.statusCode || 500;
+  // Map of custom error types to their status codes
+  const ERROR_STATUS_MAP: { [key: string]: number } = {
+    NotFoundError: HTTPSTATUS.NOT_FOUND,
+    BadRequestError: HTTPSTATUS.BAD_REQUEST,
+    UnauthorizedError: HTTPSTATUS.UNAUTHORIZED,
+    ForbiddenError: HTTPSTATUS.FORBIDDEN,
+    ConflictError: HTTPSTATUS.CONFLICT,
+    UnprocessableEntityError: HTTPSTATUS.UNPROCESSABLE_ENTITY,
+    InternalServerError: HTTPSTATUS.INTERNAL_SERVER_ERROR,
+    NotImplemented: HTTPSTATUS.NOT_IMPLEMENTED,
+    BadGateway: HTTPSTATUS.BAD_GATEWAY,
+    ServiceUnavailable: HTTPSTATUS.SERVICE_UNAVAILABLE,
+    GatewayTimeout: HTTPSTATUS.GATEWAY_TIMEOUT,
+    TooManyRequests: HTTPSTATUS.TOO_MANY_REQUESTS
+  };
+
+  // Dynamically set statusCode based on error name
+  if (err.name && ERROR_STATUS_MAP[err.name]) {
+    err.statusCode = ERROR_STATUS_MAP[err.name];
+    err.status = 'error';
+  }
+
+  // Fallback for unhandled errors
+  err.statusCode = err.statusCode || HTTPSTATUS.INTERNAL_SERVER_ERROR;
   err.status = err.status || 'error';
 
   // Set proper Content-Type for API responses
@@ -66,17 +68,7 @@ export const errorHandler = (
   if (config.NODE_ENV === 'development') {
     sendErrorDev(err, res);
   } else if (config.NODE_ENV === 'production') {
-    let error = { ...err };
-    error.message = err.message;
-
-    if (error.name === 'CastError') error = handleCastErrorDB(error);
-    if (error.code === 11000) error = handleDuplicateFieldsDB(error);
-    if (error.name === 'ValidationError')
-      error = handleValidationErrorDB(error);
-    if (error.name === 'JsonWebTokenError') error = handleJWTError();
-    if (error.name === 'TokenExpiredError') error = handleJWTExpiredError();
-
-    sendErrorProd(error, res);
+    sendErrorProd(err, res);
   }
 
   // Always call next() to satisfy the middleware signature
