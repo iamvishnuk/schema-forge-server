@@ -23,7 +23,7 @@ components:
       properties:
         _id:
           type: string
-          format: uuid
+          format: objectId
         email:
           type: string
           format: email
@@ -51,10 +51,10 @@ components:
       properties:
         _id:
           type: string
-          format: uuid
+          format: objectId
         userId:
           type: string
-          format: uuid
+          format: objectId
         userAgent:
           type: string
         createdAt:
@@ -68,10 +68,10 @@ components:
       properties:
         _id:
           type: string
-          format: uuid
+          format: objectId
         userId:
           type: string
-          format: uuid
+          format: objectId
         code:
           type: string
         type:
@@ -85,6 +85,73 @@ components:
         updatedAt:
           type: string
           format: date-time
+    TeamMember:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: objectId
+          description: 'Reference to the User who is a member of the team.'
+        joinedAt:
+          type: string
+          format: date-time
+          description: 'Timestamp when the user joined the team.'
+        role:
+          type: string
+          enum:
+            - MEMBER
+            - ADMIN
+            - OWNER
+          description: 'Role of the team member.'
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - INACTIVE
+          description: 'Status of the team member.'
+      required:
+        - userId
+        - role
+        - status
+    Team:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: objectId
+          description: 'Unique identifier for the team.'
+        name:
+          type: string
+          description: 'Name of the team.'
+        description:
+          type: string
+          description: 'Optional description of the team.'
+        createdBy:
+          type: string
+          format: objectId
+          description: 'User ID of the team creator.'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamMember'
+          description: 'List of team members.'
+        projects:
+          type: array
+          items:
+            type: string
+            format: objectId
+          description: 'List of project IDs associated with the team.'
+        createdAt:
+          type: string
+          format: date-time
+          description: 'Timestamp when the team was created.'
+        updatedAt:
+          type: string
+          format: date-time
+          description: 'Timestamp when the team was last updated.'
+      required:
+        - name
+        - createdBy
     ErrorResponse:
       type: object
       properties:
@@ -450,13 +517,13 @@ paths:
       tags:
         - Session Management
       security:
-        - bearerAuth: []
+        - accessToken: []
       parameters:
         - in: path
           name: id
           schema:
             type: string
-            format: uuid
+            format: objectId
           required: true
           description: Session ID
       responses:
@@ -475,6 +542,166 @@ paths:
                     type: object
         '404':
           description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /mfa/setup:
+    get:
+      summary: Setup 2FA for the user
+      tags:
+        - MFA
+      security:
+        - accessToken: []
+      responses:
+        '200':
+          description: 2FA setup successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      qrImageUrl:
+                        type: string
+                      secret:
+                        type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /mfa/verify:
+    post:
+      summary: Verify 2FA code
+      tags:
+        - MFA
+      security:
+        - accessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                secretKey:
+                  type: string
+              required:
+                - code
+                - secretKey
+      responses:
+        '200':
+          description: 2FA verification successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /mfa/revoke:
+    put:
+      summary: Revoke 2FA for the user
+      tags:
+        - MFA
+      security:
+        - accessToken: []
+      responses:
+        '200':
+          description: 2FA revoked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /mfa/verify-login:
+    post:
+      summary: Verify 2FA code for login
+      tags:
+        - MFA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                email:
+                  type: string
+              required:
+                - code
+                - email
+      responses:
+        '200':
+          description: 2FA verification successful for login
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    $ref: '#/components/schemas/User'
+                  tokens:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+        '400':
+          description: Invalid MFA code, please try again
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
           content:
             application/json:
               schema:
