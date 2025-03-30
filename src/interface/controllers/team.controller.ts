@@ -4,14 +4,25 @@ import { TeamsRepositoryImpl } from '../../infrastructure/repositories/teams.res
 import { asyncHandler } from '../../utils/asyncHandler';
 import { ResponseHandler } from '../../utils/responseHandler';
 import { HTTPSTATUS } from '../../config/http.config';
+import { InvitationRepositoryImpl } from '../../infrastructure/repositories/invitation.repository';
+import { NodemailerService } from '../../infrastructure/email/services/NodemailerService';
+import { UnauthorizedError } from '../../utils/error';
 
 export class TeamController {
   private teamUseCase: TeamUseCase;
   private teamRepository: TeamsRepositoryImpl;
+  private invitationRepository: InvitationRepositoryImpl;
+  private emailService: NodemailerService;
 
   constructor() {
     this.teamRepository = new TeamsRepositoryImpl();
-    this.teamUseCase = new TeamUseCase(this.teamRepository);
+    this.invitationRepository = new InvitationRepositoryImpl();
+    this.emailService = new NodemailerService();
+    this.teamUseCase = new TeamUseCase(
+      this.teamRepository,
+      this.invitationRepository,
+      this.emailService
+    );
   }
 
   public createTeam = asyncHandler(async (req: Request, res: Response) => {
@@ -75,4 +86,29 @@ export class TeamController {
       'Team fetched successfully'
     );
   });
+
+  public inviteTeamMember = asyncHandler(
+    async (req: Request, res: Response) => {
+      const { teamId, inviteeEmail, role } = req.body;
+      const user = req.user;
+
+      if (!user) {
+        throw new UnauthorizedError('User not authenticated');
+      }
+
+      const { email, url } = await this.teamUseCase.inviteMemberToTeam({
+        inviteeEmail,
+        teamId,
+        user,
+        role
+      });
+
+      ResponseHandler.success(
+        res,
+        { email, url },
+        HTTPSTATUS.OK,
+        'Invitation sent successfully'
+      );
+    }
+  );
 }
