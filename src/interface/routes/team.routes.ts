@@ -5,7 +5,11 @@ import {
   validateParams,
   validateRequest
 } from '../middlewares/requestValidator.middleware';
-import { createTeamSchema, TeamIdSchema } from '../validators/team.validator';
+import {
+  createTeamSchema,
+  inviteTeamMemberSchema,
+  TeamIdSchema
+} from '../validators/team.validator';
 
 const teamRoutes = Router();
 const teamController = new TeamController();
@@ -23,6 +27,12 @@ teamRoutes.post(
   authenticateJWT,
   validateRequest(createTeamSchema),
   teamController.createTeam
+);
+teamRoutes.post(
+  '/invite',
+  authenticateJWT,
+  validateRequest(inviteTeamMemberSchema),
+  teamController.inviteTeamMember
 );
 
 teamRoutes.put(

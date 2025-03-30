@@ -10,3 +10,15 @@ export const TeamIdSchema = z.object({
     message: 'Team Id is missing'
   })
 });
+
+export const inviteTeamMemberSchema = z.object({
+  teamId: z.string({ required_error: 'Team id is missing' }).min(1, {
+    message: 'Team Id is missing'
+  }),
+  inviteeEmail: z.string({ required_error: 'Email is required' }).email({
+    message: 'Invalid email address'
+  }),
+  role: z.enum(['admin', 'member', 'viewer'], {
+    errorMap: () => ({ message: 'Role must be either admin, member or viewer' })
+  })
+});

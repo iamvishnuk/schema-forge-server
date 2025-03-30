@@ -9,12 +9,23 @@ import { TeamRepository } from '../interfaces/team.repository';
 import {
   BadRequestError,
   ForbiddenError,
-  NotFoundError
+  NotFoundError,
+  TooManyRequests
 } from '../../utils/error';
 import { MAX_PROJECT_PER_USER } from '../../config/constant';
+import { IInviteTeamMember } from '../../definitions/interface';
+import { anHourFromNow, threeMinutesAgo } from '../../utils/date-time';
+import { InvitationRepository } from '../interfaces/invitation.repository';
+import { config } from '../../config/env';
+import { IEmailService } from '../../infrastructure/email/interface/IEmailService';
+import { teamInvitationTemplate } from '../../infrastructure/email/templates/template';
 
 export class TeamUseCase {
-  constructor(private teamRepository: TeamRepository) {}
+  constructor(
+    private teamRepository: TeamRepository,
+    private invitationRepository: InvitationRepository,
+    private emailService: IEmailService
+  ) {}
 
   /**
    * Creates a new team with the provided details
@@ -153,5 +164,92 @@ export class TeamUseCase {
     }
 
     return team;
+  }
+
+  /**
+   * Invites a new member to join a team
+   *
+   * @param data - Object containing invitation details (teamId, user, inviteeEmail, role)
+   * @returns Object containing the invitation URL and the invitee's email
+   * @throws NotFoundError if the team doesn't exist
+   * @throws BadRequestError if user is already a team member
+   * @throws ForbiddenError if the current user is not authorized to send invites
+   * @throws TooManyRequests if too many invitations were sent recently
+   */
+  async inviteMemberToTeam(
+    data: IInviteTeamMember
+  ): Promise<{ url: string; email: string }> {
+    const { teamId, user, inviteeEmail, role } = data;
+
+    // Find the team and validate it exists
+    const team = await this.teamRepository.findTeamByIdWithMembers(teamId);
+
+    if (!team) {
+      throw new NotFoundError('Team not found');
+    }
+
+    // Check if the invitee is already a member of the team
+    const isMember = team.members.some((member) => {
+      return member.userId.email === inviteeEmail;
+    });
+
+    if (isMember) {
+      throw new BadRequestError('User is already a member of the team');
+    }
+
+    // Verify the current user has permission to invite members (admin or owner)
+    const isAdmin = team.members.some(
+      (member) =>
+        member.userId._id === user._id && member.role === TeamRoleEnum.ADMIN
+    );
+
+    const isOwner = team.createdBy.toString() === String(user._id);
+
+    if (!isAdmin && !isOwner) {
+      throw new ForbiddenError('You are not authorized to invite members');
+    }
+
+    // Prevent invitation spam by limiting attempts
+    const timeAgo = threeMinutesAgo();
+    const maxAttempts = 2;
+
+    const invitationAttempts = await this.invitationRepository.countInvitations(
+      {
+        inviteeEmail,
+        teamId: teamId as unknown as mongoose.Types.ObjectId
+      },
+      { $gt: timeAgo }
+    );
+
+    if (invitationAttempts >= maxAttempts) {
+      throw new TooManyRequests(
+        'Too many invitation attempts, Please try again later'
+      );
+    }
+
+    // Create invitation with expiration time
+    const expiresAt = anHourFromNow();
+
+    const invitation = await this.invitationRepository.createInvitation({
+      teamId: teamId as unknown as mongoose.Types.ObjectId,
+      invitedBy: user._id as unknown as mongoose.Types.ObjectId,
+      inviteeEmail,
+      role,
+      expiresAt
+    });
+
+    // Generate invitation link with all necessary parameters
+    const invitationLink = `${config.APP_ORIGIN}/accept-invitation?token=${invitation.token}&exp=${expiresAt.getTime()}&email=${inviteeEmail}&teamId=${teamId}&teamName=${team.name}`;
+
+    // Send invitation email to the invitee
+    await this.emailService.sendEmail({
+      to: inviteeEmail,
+      ...teamInvitationTemplate(invitationLink, team.name, user.name)
+    });
+
+    return {
+      url: invitationLink,
+      email: inviteeEmail
+    };
   }
 }

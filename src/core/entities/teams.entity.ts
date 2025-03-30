@@ -39,3 +39,7 @@ export interface ITeamWithDetails
   createdBy: Partial<UserEntity>;
   members: Array<Omit<ITeamMember, 'userId'> & { userId: Partial<UserEntity> }>;
 }
+
+export interface ITeamWithMembers extends Omit<TeamEntity, 'save' | 'members'> {
+  members: Array<Omit<ITeamMember, 'userId'> & { userId: Partial<UserEntity> }>;
+}
