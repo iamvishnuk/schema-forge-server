@@ -1,30 +1,9 @@
 import mongoose, { Document, Schema } from 'mongoose';
-import {
-  ITeamMember,
-  MemberStatusEnum,
-  TeamEntity,
-  TeamRoleEnum
-} from '../../core/entities/teams.entity';
+import { TeamEntity } from '../../core/entities/teams.entity';
 
 export interface TeamDocument
   extends Omit<TeamEntity, 'save' | '_id'>,
     Document {}
-
-const TeamMemberSchema = new Schema<ITeamMember>({
-  userId: {
-    type: Schema.Types.ObjectId,
-    required: true,
-    ref: 'User',
-    index: true
-  },
-  joinedAt: { type: Date, default: Date.now() },
-  role: { type: String, enum: TeamRoleEnum, default: TeamRoleEnum.MEMBER },
-  status: {
-    type: String,
-    enum: MemberStatusEnum,
-    default: MemberStatusEnum.ACTIVE
-  }
-});
 
 const TeamSchema = new Schema<TeamDocument>(
   {
@@ -35,9 +14,7 @@ const TeamSchema = new Schema<TeamDocument>(
       required: true,
       ref: 'User',
       index: true
-    },
-    members: { type: [TeamMemberSchema], default: [] },
-    projects: { type: [Schema.Types.ObjectId], default: [] }
+    }
   },
   { timestamps: true, versionKey: false }
 );

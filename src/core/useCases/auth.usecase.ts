@@ -34,12 +34,14 @@ import {
 } from '../../utils/error';
 import { hashValue } from '../../utils/bcrypt';
 import { SessionEntity } from '../entities/session.entity';
+import { IEmailService } from '../../infrastructure/email/interface/IEmailService';
 
 export class AuthUseCase {
   constructor(
     private userRepository: UserRepository,
     private verificationCodeRepository: VerificationRepository,
-    private sessionRepository: SessionRepository
+    private sessionRepository: SessionRepository,
+    private emailService: IEmailService
   ) {}
 
   /**
@@ -75,7 +77,12 @@ export class AuthUseCase {
     const verificationUrl = `${config.APP_ORIGIN}/confirm-account?code=${verification.code}`;
 
     // Send verification email to the user
-    await sendEmail({
+    // await sendEmail({
+    //   to: newUser.email,
+    //   ...verifyEmailTemplate(verificationUrl)
+    // });
+
+    await this.emailService.sendEmail({
       to: newUser.email,
       ...verifyEmailTemplate(verificationUrl)
     });
