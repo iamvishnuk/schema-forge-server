@@ -22,4 +22,9 @@ export interface TeamRepository {
   findTeamByIdWithMembers(
     teamId: string
   ): Promise<Aggregate<ITeamWithMembers> | null>;
+  addMemberToTeam(
+    teamId: string,
+    userId: string,
+    role: string
+  ): Promise<TeamEntity | null>;
 }

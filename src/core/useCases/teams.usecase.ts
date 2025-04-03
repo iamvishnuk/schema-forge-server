@@ -1,29 +1,33 @@
 import mongoose from 'mongoose';
-import {
-  ITeamWithDetails,
-  MemberStatusEnum,
-  TeamEntity,
-  TeamRoleEnum
-} from '../entities/teams.entity';
+import { TeamEntity } from '../entities/teams.entity';
 import { TeamRepository } from '../interfaces/team.repository';
 import {
   BadRequestError,
   ForbiddenError,
   NotFoundError,
-  TooManyRequests
+  TooManyRequests,
+  UnauthorizedError
 } from '../../utils/error';
 import { MAX_PROJECT_PER_USER } from '../../config/constant';
-import { IInviteTeamMember } from '../../definitions/interface';
+import { IGetUserTeams, IInviteTeamMember } from '../../definitions/interface';
 import { anHourFromNow, threeMinutesAgo } from '../../utils/date-time';
 import { InvitationRepository } from '../interfaces/invitation.repository';
 import { config } from '../../config/env';
 import { IEmailService } from '../../infrastructure/email/interface/IEmailService';
 import { teamInvitationTemplate } from '../../infrastructure/email/templates/template';
+import { Request } from 'express';
+import {
+  MemberStatusEnum,
+  TeamMemberWithUser,
+  TeamRoleEnum
+} from '../entities/team-member.entity';
+import { TeamMemberInterface } from '../interfaces/team-member.interface';
 
 export class TeamUseCase {
   constructor(
     private teamRepository: TeamRepository,
     private invitationRepository: InvitationRepository,
+    private teamMemberRepository: TeamMemberInterface,
     private emailService: IEmailService
   ) {}
 
@@ -54,15 +58,7 @@ export class TeamUseCase {
     const team: Partial<TeamEntity> = {
       name,
       description,
-      createdBy: createdBy as unknown as mongoose.Types.ObjectId,
-      members: [
-        {
-          userId: createdBy as unknown as mongoose.Types.ObjectId,
-          role: TeamRoleEnum.OWNER,
-          joinedAt: new Date(),
-          status: MemberStatusEnum.ACTIVE
-        }
-      ]
+      createdBy: createdBy as unknown as mongoose.Types.ObjectId
     };
 
     // Create the team in repository
@@ -84,10 +80,8 @@ export class TeamUseCase {
    * @remarks
    * This method casts the string userId to a mongoose ObjectId before querying the repository
    */
-  async getAllUserTeams(userId: string): Promise<TeamEntity[]> {
-    return await this.teamRepository.getAllUserTeams(
-      userId as unknown as mongoose.Types.ObjectId
-    );
+  async getAllUserTeams(userId: string): Promise<IGetUserTeams[]> {
+    return await this.teamMemberRepository.getAllUserTeams(userId);
   }
 
   /**
@@ -145,25 +139,51 @@ export class TeamUseCase {
   }
 
   /**
-   * Retrieves a team by its ID, ensuring the requesting user has access
+   * Retrieves a team and its members by team ID
    *
-   * @param teamId - The unique identifier of the team to retrieve
-   * @param userId - The ID of the user requesting the team information
-   * @returns A promise that resolves to the team with detailed information
-   * @throws ForbiddenError if the user doesn't have access to the requested team
+   * @param teamId - The ID of the team to retrieve
+   * @param userId - The ID of the user making the request
+   * @returns Object containing team members and team entity
+   * @throws ForbiddenError if the user is not a member of the team
+   * @throws NotFoundError if the team doesn't exist
    */
-  async getTeamById(teamId: string, userId: string): Promise<ITeamWithDetails> {
-    const team = await this.teamRepository.getTeamById(teamId, userId);
+  async getTeamById(
+    teamId: string,
+    userId: string
+  ): Promise<{ teamMember: TeamMemberWithUser[]; team: TeamEntity }> {
+    // Get all members of the team
+    const teamMember =
+      await this.teamMemberRepository.getAllTeamMembers(teamId);
 
-    if (!team) {
-      // Instead of creating an object, directly throw the error
-      throw new ForbiddenError(
-        'Team not found or you do not have access to it',
-        403
+    // Find the team by its ID
+    const team = await this.teamRepository.findTeamById(
+      teamId as unknown as mongoose.Types.ObjectId
+    );
+
+    // Check if the requesting user is a member of the team
+    const isMember = teamMember.some((member) => {
+      return (
+        member?.userId &&
+        (member.userId._id as mongoose.Types.ObjectId).toString() ===
+          userId.toString()
       );
+    });
+
+    // Throw error if user is not a team member
+    if (!isMember) {
+      throw new ForbiddenError('You do not have access to this team');
     }
 
-    return team;
+    // Throw error if team doesn't exist
+    if (!team) {
+      throw new NotFoundError('Team not found');
+    }
+
+    // Return team members and team entity
+    return {
+      teamMember,
+      team
+    };
   }
 
   /**
@@ -182,14 +202,22 @@ export class TeamUseCase {
     const { teamId, user, inviteeEmail, role } = data;
 
     // Find the team and validate it exists
-    const team = await this.teamRepository.findTeamByIdWithMembers(teamId);
+    const team = await this.teamRepository.findTeamById(
+      teamId as unknown as mongoose.Types.ObjectId
+    );
+
+    console.log('teamId', teamId);
+    console.log('team', team);
 
     if (!team) {
       throw new NotFoundError('Team not found');
     }
 
     // Check if the invitee is already a member of the team
-    const isMember = team.members.some((member) => {
+    const teamMember =
+      await this.teamMemberRepository.getAllTeamMembers(teamId);
+
+    const isMember = teamMember.some((member) => {
       return member.userId.email === inviteeEmail;
     });
 
@@ -198,7 +226,7 @@ export class TeamUseCase {
     }
 
     // Verify the current user has permission to invite members (admin or owner)
-    const isAdmin = team.members.some(
+    const isAdmin = teamMember.some(
       (member) =>
         member.userId._id === user._id && member.role === TeamRoleEnum.ADMIN
     );
@@ -223,7 +251,7 @@ export class TeamUseCase {
 
     if (invitationAttempts >= maxAttempts) {
       throw new TooManyRequests(
-        'Too many invitation attempts, Please try again later'
+        'Too many invitation to this email, Please try again later'
       );
     }
 
@@ -250,6 +278,88 @@ export class TeamUseCase {
     return {
       url: invitationLink,
       email: inviteeEmail
+    };
+  }
+
+  /**
+   * Processes an invitation acceptance by validating the token and adding the user to the team
+   *
+   * @param token - The unique invitation token to validate
+   * @param req - Express request object containing authenticated user data
+   * @returns Object with success message and team ID
+   * @throws UnauthorizedError if user is not authenticated
+   * @throws NotFoundError if invitation or team doesn't exist
+   * @throws BadRequestError if invitation is expired or email mismatch occurs
+   */
+  async acceptInvitation(token: string, req: Request) {
+    const user = req.user;
+
+    // Verify user is authenticated
+    if (!user) {
+      throw new UnauthorizedError('User not authenticated');
+    }
+
+    // Retrieve invitation by token
+    const invitation =
+      await this.invitationRepository.findInvitationByToken(token);
+
+    if (!invitation) {
+      throw new NotFoundError('Invitation not found');
+    }
+
+    // Validate invitation hasn't expired
+    const now = Date.now();
+    if (now > invitation.expiresAt.getTime()) {
+      throw new BadRequestError('Invitation has expired');
+    }
+
+    // Ensure the invitation was sent to the current user's email
+    if (invitation.inviteeEmail !== user.email) {
+      throw new BadRequestError('Invitation email does not match user email');
+    }
+
+    // Find the team and its members
+    const team = await this.teamRepository.findTeamById(invitation.teamId);
+
+    if (!team) {
+      throw new NotFoundError('Team not found');
+    }
+
+    const teamMember = await this.teamMemberRepository.getAllTeamMembers(
+      invitation.teamId as unknown as string
+    );
+
+    // Check if user is already a team member
+    const isMember = teamMember.some((member) => {
+      return member.userId.email === user.email;
+    });
+
+    // Return early if user is already a member
+    if (isMember) {
+      return {
+        message: 'You are already a member of this team',
+        teamId: team._id
+      };
+    }
+
+    // Add the user to the team with the assigned role
+    const newMember = await this.teamMemberRepository.create({
+      userId: user._id as unknown as mongoose.Types.ObjectId,
+      teamId: team._id as unknown as mongoose.Types.ObjectId,
+      role: invitation.role as unknown as TeamRoleEnum,
+      status: MemberStatusEnum.ACTIVE
+    });
+
+    if (!newMember) {
+      throw new BadRequestError('Failed to accept invitation');
+    }
+
+    // Delete the invitation once it's been successfully accepted
+    await this.invitationRepository.findInvitationByTokenAndDelete(token);
+
+    return {
+      message: 'Invitation accepted successfully',
+      teamId: team._id
     };
   }
 }

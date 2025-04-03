@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import {
   ITeamWithDetails,
   ITeamWithMembers,
@@ -7,10 +7,38 @@ import {
 import { TeamRepository } from '../../core/interfaces/team.repository';
 import { TeamModel } from '../models/team.model';
 import { Aggregate } from 'mongoose';
+import { TeamMemberModel } from '../models/team-member.model';
+import {
+  MemberStatusEnum,
+  TeamRoleEnum
+} from '../../core/entities/team-member.entity';
 
 export class TeamsRepositoryImpl implements TeamRepository {
-  create(data: Partial<TeamEntity>): Promise<TeamEntity> {
-    return TeamModel.create(data);
+  async create(data: Partial<TeamEntity>): Promise<TeamEntity> {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const team = await TeamModel.create([data], { session }).then(
+        (teams) => teams[0]
+      );
+      const member = await TeamMemberModel.create({
+        userId: data?.createdBy,
+        teamId: team._id,
+        role: TeamRoleEnum.OWNER,
+        status: MemberStatusEnum.ACTIVE
+      });
+
+      if (!team || !member) {
+        throw new Error('Failed to create team or member');
+      }
+      await session.commitTransaction();
+      return team;
+    } catch (error) {
+      await session.abortTransaction();
+      throw error instanceof Error ? error : new Error('Failed to create team');
+    } finally {
+      session.endSession();
+    }
   }
 
   countUserTeams(userId: Types.ObjectId): Promise<number> {
@@ -138,5 +166,24 @@ export class TeamsRepositoryImpl implements TeamRepository {
     ]).exec();
 
     return result[0] ?? null;
+  }
+
+  addMemberToTeam(
+    teamId: string,
+    userId: string,
+    role: string
+  ): Promise<TeamEntity | null> {
+    return TeamModel.findByIdAndUpdate(
+      teamId,
+      {
+        $addToSet: {
+          members: {
+            userId: new Types.ObjectId(userId),
+            role
+          }
+        }
+      },
+      { new: true }
+    );
   }
 }

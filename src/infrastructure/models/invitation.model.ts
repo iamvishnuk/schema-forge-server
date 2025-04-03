@@ -24,7 +24,12 @@ const InvitationSchema = new Schema<InvitationDocument>(
       index: true
     },
     inviteeEmail: { type: String, required: true },
-    token: { type: String, required: true, default: generateUniqueCode },
+    token: {
+      type: String,
+      required: true,
+      unique: true,
+      default: generateUniqueCode
+    },
     role: {
       type: String,
       enum: InvitationRoleEnum

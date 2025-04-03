@@ -7,20 +7,24 @@ import { HTTPSTATUS } from '../../config/http.config';
 import { InvitationRepositoryImpl } from '../../infrastructure/repositories/invitation.repository';
 import { NodemailerService } from '../../infrastructure/email/services/NodemailerService';
 import { UnauthorizedError } from '../../utils/error';
+import { TeamMemberRepositoryImpl } from '../../infrastructure/repositories/team-member.repository';
 
 export class TeamController {
   private teamUseCase: TeamUseCase;
   private teamRepository: TeamsRepositoryImpl;
   private invitationRepository: InvitationRepositoryImpl;
   private emailService: NodemailerService;
+  private teamMemberRepository: TeamMemberRepositoryImpl;
 
   constructor() {
     this.teamRepository = new TeamsRepositoryImpl();
     this.invitationRepository = new InvitationRepositoryImpl();
     this.emailService = new NodemailerService();
+    this.teamMemberRepository = new TeamMemberRepositoryImpl();
     this.teamUseCase = new TeamUseCase(
       this.teamRepository,
       this.invitationRepository,
+      this.teamMemberRepository,
       this.emailService
     );
   }
@@ -77,11 +81,14 @@ export class TeamController {
     const { teamId } = req.params;
     const userId = req?.user?._id as string;
 
-    const team = await this.teamUseCase.getTeamById(teamId, userId);
+    const { team, teamMember } = await this.teamUseCase.getTeamById(
+      teamId,
+      userId
+    );
 
     ResponseHandler.success(
       res,
-      team,
+      { team, teamMember },
       HTTPSTATUS.OK,
       'Team fetched successfully'
     );
@@ -109,6 +116,19 @@ export class TeamController {
         HTTPSTATUS.OK,
         'Invitation sent successfully'
       );
+    }
+  );
+
+  public acceptInvitation = asyncHandler(
+    async (req: Request, res: Response) => {
+      const { token } = req.body;
+
+      const { message, teamId } = await this.teamUseCase.acceptInvitation(
+        token,
+        req
+      );
+
+      ResponseHandler.success(res, { teamId }, HTTPSTATUS.OK, message);
     }
   );
 }
