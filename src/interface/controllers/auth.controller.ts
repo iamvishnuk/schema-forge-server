@@ -7,21 +7,25 @@ import { ResponseHandler } from '../../utils/responseHandler';
 import { HTTPSTATUS } from '../../config/http.config';
 import { SessionRepositoryImpl } from '../../infrastructure/repositories/session.repository';
 import { NotFoundError, UnauthorizedError } from '../../utils/error';
+import { NodemailerService } from '../../infrastructure/email/services/NodemailerService';
 
 export class AuthController {
   private userRepository: UserRepositoryImpl;
   private authUseCase: AuthUseCase;
   private verificationCodeRepository: VerificationCodeImpl;
   private sessionRepository: SessionRepositoryImpl;
+  private emailService: NodemailerService;
 
   constructor() {
     this.userRepository = new UserRepositoryImpl();
     this.verificationCodeRepository = new VerificationCodeImpl();
     this.sessionRepository = new SessionRepositoryImpl();
+    this.emailService = new NodemailerService();
     this.authUseCase = new AuthUseCase(
       this.userRepository,
       this.verificationCodeRepository,
-      this.sessionRepository
+      this.sessionRepository,
+      this.emailService
     );
   }
 

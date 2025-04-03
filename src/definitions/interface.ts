@@ -7,3 +7,12 @@ export interface IInviteTeamMember {
   inviteeEmail: string;
   role: InvitationRoleEnum;
 }
+
+export interface IGetUserTeams {
+  _id: string;
+  name: string;
+  description: string;
+  memberCount: number;
+  createdAt: Date;
+  createdBy: string;
+}

@@ -8,4 +8,8 @@ export interface InvitationRepository {
     data: Pick<InvitationEntity, 'inviteeEmail' | 'teamId'>,
     createdAtQuery?: { $gt: Date; $lt?: Date }
   ): Promise<number>;
+  findInvitationByToken(token: string): Promise<InvitationEntity | null>;
+  findInvitationByTokenAndDelete(
+    token: string
+  ): Promise<InvitationEntity | null>;
 }

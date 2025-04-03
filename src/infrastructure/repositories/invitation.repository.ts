@@ -19,4 +19,14 @@ export class InvitationRepositoryImpl implements InvitationRepository {
       ...(createdAtQuery ? { createdAt: createdAtQuery } : {})
     });
   }
+
+  findInvitationByToken(token: string): Promise<InvitationEntity | null> {
+    return InvitationModel.findOne({ token });
+  }
+
+  findInvitationByTokenAndDelete(
+    token: string
+  ): Promise<InvitationEntity | null> {
+    return InvitationModel.findOneAndDelete({ token });
+  }
 }

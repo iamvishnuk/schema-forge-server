@@ -6,6 +6,7 @@ import {
   validateRequest
 } from '../middlewares/requestValidator.middleware';
 import {
+  acceptInvitationSchema,
   createTeamSchema,
   inviteTeamMemberSchema,
   TeamIdSchema
@@ -33,6 +34,12 @@ teamRoutes.post(
   authenticateJWT,
   validateRequest(inviteTeamMemberSchema),
   teamController.inviteTeamMember
+);
+teamRoutes.post(
+  '/accept-invite',
+  authenticateJWT,
+  validateRequest(acceptInvitationSchema),
+  teamController.acceptInvitation
 );
 
 teamRoutes.put(

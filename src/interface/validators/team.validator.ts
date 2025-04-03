@@ -22,3 +22,9 @@ export const inviteTeamMemberSchema = z.object({
     errorMap: () => ({ message: 'Role must be either admin, member or viewer' })
   })
 });
+
+export const acceptInvitationSchema = z.object({
+  token: z
+    .string({ required_error: 'Token is required' })
+    .min(1, { message: 'Token is required' })
+});
