@@ -1,5 +1,9 @@
 import mongoose, { Aggregate } from 'mongoose';
-import { ITeamWithDetails, TeamEntity } from '../entities/teams.entity';
+import {
+  ITeamWithDetails,
+  ITeamWithMembers,
+  TeamEntity
+} from '../entities/teams.entity';
 
 export interface TeamRepository {
   create(data: Partial<TeamEntity>): Promise<TeamEntity>;
@@ -15,4 +19,12 @@ export interface TeamRepository {
     teamId: string,
     userId: string
   ): Promise<Aggregate<ITeamWithDetails> | null>;
+  findTeamByIdWithMembers(
+    teamId: string
+  ): Promise<Aggregate<ITeamWithMembers> | null>;
+  addMemberToTeam(
+    teamId: string,
+    userId: string,
+    role: string
+  ): Promise<TeamEntity | null>;
 }
