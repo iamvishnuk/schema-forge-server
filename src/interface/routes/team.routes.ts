@@ -8,6 +8,7 @@ import {
 import {
   acceptInvitationSchema,
   createTeamSchema,
+  IdParamsSchema,
   inviteTeamMemberSchema,
   TeamIdSchema
 } from '../validators/team.validator';
@@ -49,12 +50,23 @@ teamRoutes.put(
   validateParams(TeamIdSchema),
   teamController.updateTeam
 );
+teamRoutes.put(
+  '/member/change-role',
+  authenticateJWT,
+  teamController.changeTeamMemberRole
+);
 
 teamRoutes.delete(
   '/delete/:teamId',
   authenticateJWT,
   validateParams(TeamIdSchema),
   teamController.deleteTeam
+);
+teamRoutes.delete(
+  '/member/remove/:id',
+  authenticateJWT,
+  validateParams(IdParamsSchema),
+  teamController.removeOrLeaveTeam
 );
 
 export default teamRoutes;
