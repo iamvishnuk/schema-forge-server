@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import { TeamRoleEnum } from '../../core/entities/team-member.entity';
+
+export const IdParamsSchema = z.object({
+  id: z.string({ required_error: 'Id is missing' }).min(1, {
+    message: 'Id is missing'
+  })
+});
 
 export const createTeamSchema = z.object({
   name: z.string().min(3).max(50),
@@ -27,4 +34,11 @@ export const acceptInvitationSchema = z.object({
   token: z
     .string({ required_error: 'Token is required' })
     .min(1, { message: 'Token is required' })
+});
+
+export const changeRoleSchema = z.object({
+  id: z.string({ required_error: 'Id is required' }).min(1, {
+    message: 'Id is required'
+  }),
+  role: z.nativeEnum(TeamRoleEnum, { message: 'Invalid role' })
 });
