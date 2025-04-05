@@ -131,4 +131,30 @@ export class TeamController {
       ResponseHandler.success(res, { teamId }, HTTPSTATUS.OK, message);
     }
   );
+
+  public removeOrLeaveTeam = asyncHandler(
+    async (req: Request, res: Response) => {
+      const { id } = req.params;
+      const userId = req?.user?._id as string;
+      const { isSelf, message } = await this.teamUseCase.removeOrLeaveTeam(
+        id,
+        userId
+      );
+      ResponseHandler.success(res, { isSelf }, HTTPSTATUS.OK, message);
+    }
+  );
+
+  public changeTeamMemberRole = asyncHandler(
+    async (req: Request, res: Response) => {
+      const { id, role } = req.body;
+      const teamMember = await this.teamUseCase.changeTeamMemberRole(id, role);
+
+      ResponseHandler.success(
+        res,
+        teamMember,
+        HTTPSTATUS.OK,
+        'Team member role updated successfully'
+      );
+    }
+  );
 }

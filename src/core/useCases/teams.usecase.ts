@@ -18,6 +18,7 @@ import { teamInvitationTemplate } from '../../infrastructure/email/templates/tem
 import { Request } from 'express';
 import {
   MemberStatusEnum,
+  TeamMemberEntity,
   TeamMemberWithUser,
   TeamRoleEnum
 } from '../entities/team-member.entity';
@@ -361,5 +362,55 @@ export class TeamUseCase {
       message: 'Invitation accepted successfully',
       teamId: team._id
     };
+  }
+
+  async removeOrLeaveTeam(
+    id: string,
+    userId: string
+  ): Promise<{ message: string; isSelf: boolean }> {
+    const teamMember = await this.teamMemberRepository.getTeamMemberById(id);
+
+    if (!teamMember) {
+      throw new NotFoundError(
+        'You are not a member of this team or cannot remove the user'
+      );
+    }
+
+    // check if the user is the owner of the team
+    const isOwner = teamMember.role === TeamRoleEnum.OWNER;
+    if (isOwner) {
+      throw new ForbiddenError('You cannot remove the owner of the team');
+    }
+
+    const isSelf = teamMember.userId.toString() === userId.toString();
+
+    const deleteTeamMember =
+      await this.teamMemberRepository.deleteTeamMemberById(id);
+
+    if (!deleteTeamMember) {
+      throw new NotFoundError(
+        isSelf ? 'Failed to leave team' : 'Failed to remove user from team'
+      );
+    }
+
+    return {
+      message: isSelf
+        ? 'You have successfully left the team'
+        : 'User has been removed from the team',
+      isSelf
+    };
+  }
+
+  async changeTeamMemberRole(
+    id: string,
+    role: string
+  ): Promise<TeamMemberEntity> {
+    const teamMember = await this.teamMemberRepository.changeRole(id, role);
+
+    if (!teamMember) {
+      throw new NotFoundError('Failed to change team member role');
+    }
+
+    return teamMember;
   }
 }

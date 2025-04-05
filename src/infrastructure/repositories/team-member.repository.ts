@@ -73,4 +73,16 @@ export class TeamMemberRepositoryImpl implements TeamMemberInterface {
       { $set: { userId: { $arrayElemAt: ['$userId', 0] } } }
     ]);
   }
+
+  getTeamMemberById(id: string): Promise<TeamMemberEntity | null> {
+    return TeamMemberModel.findById(id);
+  }
+
+  deleteTeamMemberById(id: string): Promise<TeamMemberEntity | null> {
+    return TeamMemberModel.findByIdAndDelete(id);
+  }
+
+  changeRole(id: string, role: string): Promise<TeamMemberEntity | null> {
+    return TeamMemberModel.findByIdAndUpdate(id, { role }, { new: true });
+  }
 }
