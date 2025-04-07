@@ -31,7 +31,7 @@ components:
           type: string
         isEmailVerified:
           type: boolean
-        uuserPreferences:
+        userPreferences:
           type: object
           properties:
             enable2FA:
@@ -88,10 +88,18 @@ components:
     TeamMember:
       type: object
       properties:
+        _id:
+          type: string
+          format: objectId
+          description: 'Unique identifier for the team member.'
         userId:
           type: string
           format: objectId
           description: 'Reference to the User who is a member of the team.'
+        teamId:
+          type: string
+          format: objectId
+          description: 'Reference to the Team the user belongs to.'
         joinedAt:
           type: string
           format: date-time
@@ -102,6 +110,7 @@ components:
             - MEMBER
             - ADMIN
             - OWNER
+            - VIEWER
           description: 'Role of the team member.'
         status:
           type: string
@@ -109,10 +118,22 @@ components:
             - ACTIVE
             - INACTIVE
           description: 'Status of the team member.'
+        createdAt:
+          type: string
+          format: date-time
+          description: 'Timestamp when the team member was created.'
+        updatedAt:
+          type: string
+          format: date-time
+          description: 'Timestamp when the team member was last updated.'
       required:
         - userId
         - role
         - status
+        - teamId
+        - joinedAt
+        - createdAt
+        - updatedAt
     Team:
       type: object
       properties:
@@ -130,17 +151,6 @@ components:
           type: string
           format: objectId
           description: 'User ID of the team creator.'
-        members:
-          type: array
-          items:
-            $ref: '#/components/schemas/TeamMember'
-          description: 'List of team members.'
-        projects:
-          type: array
-          items:
-            type: string
-            format: objectId
-          description: 'List of project IDs associated with the team.'
         createdAt:
           type: string
           format: date-time
@@ -152,6 +162,54 @@ components:
       required:
         - name
         - createdBy
+        - createdAt
+        - updatedAt
+    Invitation:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: objectId
+          description: 'Unique identifier for the invitation.'
+        teamId:
+          type: string
+          format: objectId
+          description: 'Reference to the Team for which the invitation is sent.'
+        invitedBy:
+          type: string
+          format: objectId
+          description: 'User ID of the person who sent the invitation.'
+        inviteeEmail:
+          type: string
+          format: email
+          description: 'Email address of the person being invited.'
+        role:
+          type: string
+          enum:
+            - MEMBER
+            - ADMIN
+            - VIEWER
+          description: 'Role of the invitee in the team.'
+        expiresAt:
+          type: string
+          format: date-time
+          description: 'Timestamp when the invitation expires.'
+        createdAt:
+          type: string
+          format: date-time
+          description: 'Timestamp when the invitation was created.'
+        updatedAt:
+          type: string
+          format: date-time
+          description: 'Timestamp when the invitation was last updated.'
+      required:
+        - teamId
+        - invitedBy
+        - inviteeEmail
+        - role
+        - expiresAt
+        - createdAt
+        - updatedAt
     ErrorResponse:
       type: object
       properties:
@@ -702,6 +760,489 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /team/create:
+    post:
+      summary: Create a new team
+      tags:
+        - Team Management
+      security:
+        - accessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+              required:
+                - name
+      responses:
+        '201':
+          description: Team created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Team'
+        '400':
+          description: Failed to create team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /team/update/{teamId}:
+    put:
+      summary: Update team information
+      tags:
+        - Team Management
+      security:
+        - accessToken: []
+      parameters:
+        - in: path
+          name: teamId
+          schema:
+            type: string
+            format: objectId
+          required: true
+          description: Team ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+              required:
+                - name
+      responses:
+        '200':
+          description: Team updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Team'
+        '400':
+          description: Failed to update team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Team not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /team/delete/{teamId}:
+    delete:
+      summary: Delete a team
+      tags:
+        - Team Management
+      security:
+        - accessToken: []
+      parameters:
+        - in: path
+          name: teamId
+          schema:
+            type: string
+            format: objectId
+          required: true
+          description: Team ID
+      responses:
+        '200':
+          description: Team deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '404':
+          description: Team not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /team/user-teams:
+    get:
+      summary: Get all teams for the current user
+      tags:
+        - Team Management
+      security:
+        - accessToken: []
+      responses:
+        '200':
+          description: Teams retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        memberCount:
+                          type: number
+                        createdAt:
+                          type: string
+                          format: date-time
+                        createdBy:
+                          type: string
+                          format: objectId
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /team/{teamId}:
+    get:
+      summary: Get team information with user
+      tags:
+        - Team Management
+      security:
+        - accessToken: []
+      parameters:
+        - in: path
+          name: teamId
+          schema:
+            type: string
+            format: objectId
+          required: true
+          description: Team ID
+      responses:
+        '200':
+          description: Team retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      team:
+                        $ref: '#/components/schemas/Team'
+                      teamMember:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                              format: objectId
+                            userId:
+                              type: object
+                              properties:
+                                _id:
+                                  type: string
+                                  format: objectId
+                                name:
+                                  type: string
+                                email:
+                                  type: string
+                                  format: email
+                            teamId:
+                              type: string
+                              format: objectId
+                            role:
+                              type: string
+                              enum:
+                                - MEMBER
+                                - ADMIN
+                                - OWNER
+                                - VIEWER
+                            joinedAt:
+                              type: string
+                              format: date-time
+                            status:
+                              type: string
+                              enum:
+                                - ACTIVE
+                                - INACTIVE
+                            createdAt:
+                              type: string
+                              format: date-time
+                            updatedAt:
+                              type: string
+                              format: date-time
+        '404':
+          description: Team not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: 'You do not have access to this team'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /team/invite:
+    post:
+      summary: Invite a user to a team
+      tags:
+        - Team Management
+      security:
+        - accessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                inviteeEmail:
+                  type: string
+                  format: email
+                role:
+                  type: string
+                  enum:
+                    - MEMBER
+                    - ADMIN
+                    - VIEWER
+                teamId:
+                  type: string
+                  format: objectId
+              required:
+                - email
+                - role
+                - teamId
+      responses:
+        '200':
+          description: User invited successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                        format: email
+                      url:
+                        type: string
+        '400':
+          description: User is already a member of the team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Team not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: You are not authorized to invite members
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many invitation to this email, Please try again later
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /team/accept-invite:
+    post:
+      summary: Accept an invitation to join a team
+      tags:
+        - Team Management
+      security:
+        - accessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+              required:
+                - token
+      responses:
+        '200':
+          description: Invitation accepted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      teamId:
+                        type: string
+                        format: objectId
+        '400':
+          description: Invalid or expired token or Invitation email does not match user email or Failed to accept invitation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Invitation not found or team not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: You are not authorized to accept this invitation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /team/member/change-role:
+    put:
+      summary: Change the role of a team member
+      tags:
+        - Team Management
+      security:
+        - accessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum:
+                    - MEMBER
+                    - ADMIN
+                    - OWNER
+                    - VIEWER
+                id:
+                  type: string
+                  format: objectId
+              required:
+                - role
+                - id
+      responses:
+        '200':
+          description: Team member role updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/TeamMember'
+        '404':
+          description: Failed to change team member role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /team/member/remove/{id}:
+    delete:
+      summary: Remove a team member or leave from the team
+      tags:
+        - Team Management
+      security:
+        - accessToken: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: objectId
+          required: true
+          description: Team member ID
+      responses:
+        '200':
+          description: Team member removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/TeamMember'
+        '404':
+          description: You are not a member of this team or cannot remove the user or Failed to leave team or Faild to remove user from team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: You cannot remove the owner of the team
           content:
             application/json:
               schema:
