@@ -157,4 +157,18 @@ export class TeamController {
       );
     }
   );
+
+  public getUserCreatedTeams = asyncHandler(
+    async (req: Request, res: Response) => {
+      const userId = req?.user?._id as string;
+
+      const teams = await this.teamUseCase.getUserCreatedTeams(userId);
+      ResponseHandler.success(
+        res,
+        teams,
+        HTTPSTATUS.OK,
+        'User created teams fetched successfully'
+      );
+    }
+  );
 }
