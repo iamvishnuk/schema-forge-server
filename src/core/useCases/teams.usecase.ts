@@ -207,9 +207,6 @@ export class TeamUseCase {
       teamId as unknown as mongoose.Types.ObjectId
     );
 
-    console.log('teamId', teamId);
-    console.log('team', team);
-
     if (!team) {
       throw new NotFoundError('Team not found');
     }
