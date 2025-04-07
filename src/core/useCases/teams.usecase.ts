@@ -410,4 +410,8 @@ export class TeamUseCase {
 
     return teamMember;
   }
+
+  async getUserCreatedTeams(userId: string): Promise<TeamEntity[]> {
+    return await this.teamRepository.findUserCreatedTeams(userId);
+  }
 }

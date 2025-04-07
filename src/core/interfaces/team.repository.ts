@@ -27,4 +27,5 @@ export interface TeamRepository {
     userId: string,
     role: string
   ): Promise<TeamEntity | null>;
+  findUserCreatedTeams(userId: string): Promise<TeamEntity[]>;
 }
