@@ -18,6 +18,11 @@ const teamController = new TeamController();
 
 teamRoutes.get('/user-teams', authenticateJWT, teamController.getUserTeams);
 teamRoutes.get(
+  '/user-created-teams',
+  authenticateJWT,
+  teamController.getUserCreatedTeams
+);
+teamRoutes.get(
   '/:teamId',
   authenticateJWT,
   validateParams(TeamIdSchema),

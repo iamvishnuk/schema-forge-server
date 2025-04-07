@@ -186,4 +186,8 @@ export class TeamsRepositoryImpl implements TeamRepository {
       { new: true }
     );
   }
+
+  findUserCreatedTeams(userId: string): Promise<TeamEntity[]> {
+    return TeamModel.find({ createdBy: new Types.ObjectId(userId) });
+  }
 }
