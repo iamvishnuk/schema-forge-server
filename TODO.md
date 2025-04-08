@@ -1,6 +1,9 @@
 # Development TODOs
 
-- [] Create Team
-- [] Invite Team member
-- [] Rate limiting on invite
-- [] Role checking and permission
+- [x] Create Team
+- [x] Invite Team member
+- [x] Rate limiting on invite
+- [x] Role checking and permission
+- [x] Create Project
+- [x] Update Project
+- [] Delete Project (owner can only delete project)
