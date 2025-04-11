@@ -7,7 +7,7 @@ import { ResponseHandler } from '../../utils/responseHandler';
 import { HTTPSTATUS } from '../../config/http.config';
 import { SessionRepositoryImpl } from '../../infrastructure/repositories/session.repository';
 import { NotFoundError, UnauthorizedError } from '../../utils/error';
-import { NodemailerService } from '../../infrastructure/email/services/NodemailerService';
+import { NodemailerService } from '../../infrastructure/services/email/services/NodemailerService';
 
 export class AuthController {
   private userRepository: UserRepositoryImpl;
