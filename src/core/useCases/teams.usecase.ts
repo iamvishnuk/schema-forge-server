@@ -13,8 +13,8 @@ import { IGetUserTeams, IInviteTeamMember } from '../../definitions/interface';
 import { anHourFromNow, threeMinutesAgo } from '../../utils/date-time';
 import { InvitationRepository } from '../interfaces/invitation.repository';
 import { config } from '../../config/env';
-import { IEmailService } from '../../infrastructure/email/interface/IEmailService';
-import { teamInvitationTemplate } from '../../infrastructure/email/templates/template';
+import { IEmailService } from '../../infrastructure/services/email/interface/IEmailService';
+import { teamInvitationTemplate } from '../../infrastructure/services/email/templates/template';
 import { Request } from 'express';
 import {
   MemberStatusEnum,

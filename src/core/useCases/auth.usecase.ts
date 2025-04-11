@@ -11,11 +11,11 @@ import {
 } from '../../utils/date-time';
 import { VerificationEnum } from '../entities/verificationCode.entity';
 import { config } from '../../config/env';
-import { sendEmail } from '../../infrastructure/email/services/emailService';
+import { sendEmail } from '../../infrastructure/services/email/services/emailService';
 import {
   passwordResetTemplate,
   verifyEmailTemplate
-} from '../../infrastructure/email/templates/template';
+} from '../../infrastructure/services/email/templates/template';
 import { SessionRepository } from '../interfaces/session.repository';
 import {
   accessTokenSignOptions,
@@ -34,7 +34,7 @@ import {
 } from '../../utils/error';
 import { hashValue } from '../../utils/bcrypt';
 import { SessionEntity } from '../entities/session.entity';
-import { IEmailService } from '../../infrastructure/email/interface/IEmailService';
+import { IEmailService } from '../../infrastructure/services/email/interface/IEmailService';
 
 export class AuthUseCase {
   constructor(
