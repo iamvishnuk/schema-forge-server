@@ -1,6 +1,6 @@
 import { CreateEmailResponse } from 'resend';
 import { resend } from '../config/resendClient';
-import { config } from '../../../config/env';
+import { config } from '../../../../config/env';
 
 interface SendEmailProps {
   to: string | string[];

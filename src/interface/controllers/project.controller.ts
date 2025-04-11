@@ -4,14 +4,24 @@ import { ProjectRepositoryImpl } from '../../infrastructure/repositories/project
 import { asyncHandler } from '../../utils/asyncHandler';
 import { ResponseHandler } from '../../utils/responseHandler';
 import { HTTPSTATUS } from '../../config/http.config';
+import { S3Service } from '../../infrastructure/services/s3/services/S3Service';
+import { DesignRepositoryImpl } from '../../infrastructure/repositories/design.repository';
 
 export class ProjectController {
   private projectRepository: ProjectRepositoryImpl;
+  private designRepository: DesignRepositoryImpl;
   private projectUseCase: ProjectUseCase;
+  private s3Service: S3Service;
 
   constructor() {
     this.projectRepository = new ProjectRepositoryImpl();
-    this.projectUseCase = new ProjectUseCase(this.projectRepository);
+    this.designRepository = new DesignRepositoryImpl();
+    this.s3Service = new S3Service();
+    this.projectUseCase = new ProjectUseCase(
+      this.projectRepository,
+      this.s3Service,
+      this.designRepository
+    );
   }
 
   public createProject = asyncHandler(async (req: Request, res: Response) => {

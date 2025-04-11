@@ -1,10 +1,17 @@
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { ProjectEntity } from '../entities/project.entity';
 import { ProjectInterface } from '../interfaces/project.interface';
 import { ForbiddenError, NotFoundError } from '../../utils/error';
+import { IS3Service } from '../../infrastructure/services/s3/interface/IS3Service';
+import { DesignInterface } from '../interfaces/design.interface';
+import { DesignEntity } from '../entities/design.entity';
 
 export class ProjectUseCase {
-  constructor(private projectRepository: ProjectInterface) {}
+  constructor(
+    private projectRepository: ProjectInterface,
+    private s3Service: IS3Service,
+    private designRepository: DesignInterface
+  ) {}
 
   async createTeam(
     data: Partial<ProjectEntity>,
@@ -19,7 +26,21 @@ export class ProjectUseCase {
       connectionString: data.connectionString,
       createdBy: new Types.ObjectId(userId)
     };
-    return this.projectRepository.create(projectData);
+    const newProject = await this.projectRepository.create(projectData);
+
+    const projectId = newProject._id as string;
+
+    const uploadRes = await this.s3Service.createEmptyProjectDesign(projectId);
+
+    const designData: Partial<DesignEntity> = {
+      projectId: newProject._id as mongoose.Types.ObjectId,
+      filePath: uploadRes.filePath,
+      contentType: uploadRes.contentType
+    };
+
+    await this.designRepository.create(designData);
+
+    return newProject;
   }
 
   async getProjects(userId: string): Promise<ProjectEntity[]> {

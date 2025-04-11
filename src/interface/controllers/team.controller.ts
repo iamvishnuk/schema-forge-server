@@ -5,7 +5,7 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { ResponseHandler } from '../../utils/responseHandler';
 import { HTTPSTATUS } from '../../config/http.config';
 import { InvitationRepositoryImpl } from '../../infrastructure/repositories/invitation.repository';
-import { NodemailerService } from '../../infrastructure/email/services/NodemailerService';
+import { NodemailerService } from '../../infrastructure/services/email/services/NodemailerService';
 import { UnauthorizedError } from '../../utils/error';
 import { TeamMemberRepositoryImpl } from '../../infrastructure/repositories/team-member.repository';
 

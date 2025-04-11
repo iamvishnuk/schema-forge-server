@@ -15,6 +15,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.787.0",
     "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -30,6 +31,7 @@
     "passport-jwt": "^4.0.1",
     "qrcode": "^1.5.4",
     "resend": "^4.1.2",
+    "socket.io": "^4.8.1",
     "speakeasy": "^2.0.0",
     "swagger-ui-express": "^5.0.1",
     "tsconfig-paths": "^4.2.0",

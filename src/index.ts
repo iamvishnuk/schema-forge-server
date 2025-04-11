@@ -12,8 +12,13 @@ import { AppError } from './utils/appError';
 import passport from './interface/middlewares/passport.middleware';
 import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
+import { SocketServer } from './infrastructure/sockets';
+import http from 'http';
 
 const app = express();
+const server = http.createServer(app);
+
+new SocketServer(server);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -51,7 +56,7 @@ app.all('*', (req, res, next) => {
 
 app.use(errorHandler);
 
-app.listen(config.PORT, async () => {
+server.listen(config.PORT, async () => {
   logger.info(
     `Server is running on port http://localhost:${config.PORT}${config.BASE_PATH} on ${config.NODE_ENV} mode`
   );
