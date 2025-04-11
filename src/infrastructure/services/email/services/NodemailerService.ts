@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { IEmailService } from '../interface/IEmailService';
-import { config } from '../../../config/env';
-import { InternalServerError } from '../../../utils/error';
+import { config } from '../../../../config/env';
+import { InternalServerError } from '../../../../utils/error';
 
 export class NodemailerService implements IEmailService {
   private transporter: nodemailer.Transporter;
