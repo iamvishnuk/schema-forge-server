@@ -8,4 +8,5 @@ export interface PutObjectResponse {
 
 export interface IS3Service {
   createEmptyProjectDesign(projectId: string): Promise<PutObjectResponse>;
+  getProjectDesign(filePath: string): Promise<Record<string, unknown>>;
 }

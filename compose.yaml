@@ -1,16 +1,46 @@
 # docker-compose.yml
-version: '3.8'
-
 services:
   app:
     build: .
     ports:
       - '8000:8000'
-    volumes:
-      - .:/app
-      - /app/node_modules
     env_file:
       - .env.development
     environment:
       - NODE_ENV=development
     command: npm run dev
+    develop:
+      watch:
+        - path: ./package.json
+          action: rebuild
+        - path: ./package-lock.json
+          action: rebuild
+        - path: ./
+          target: /app
+          action: sync
+          ignore:
+            - ./.git
+            - ./.gitignore
+            - ./node_modules
+            - ./docker-compose.yml
+            - ./dockerfile
+            - ./docker-compose.override.yml
+            - ./docker-compose.prod.yml
+            - ./docker-compose.dev.yml
+            - ./README.md
+
+  redis:
+    image: redis/redis-stack:latest
+    ports:
+      - '6379:6379'
+      - '8001:8001'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:
