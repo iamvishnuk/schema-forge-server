@@ -2,7 +2,7 @@ import { config } from '../../../../config/env';
 import { InternalServerError } from '../../../../utils/error';
 import { s3Client } from '../config/s3Client';
 import { IS3Service, PutObjectResponse } from '../interface/IS3Service';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 
 export class S3Service implements IS3Service {
   async createEmptyProjectDesign(
@@ -31,5 +31,24 @@ export class S3Service implements IS3Service {
       console.error('Error uploading file to S3:', error);
       throw new InternalServerError('Failed to create empty project design');
     }
+  }
+
+  async getProjectDesign(filePath: string): Promise<Record<string, unknown>> {
+    const command = new GetObjectCommand({
+      Bucket: config.AWS_BUCKET_NAME!,
+      Key: filePath
+    });
+
+    const result = await s3Client.send(command);
+
+    if (!result.Body) {
+      throw new InternalServerError('Failed to retrieve project design');
+    }
+
+    const bodyContent = await result.Body.transformToString();
+
+    const parsedContent = JSON.parse(bodyContent);
+
+    return parsedContent;
   }
 }

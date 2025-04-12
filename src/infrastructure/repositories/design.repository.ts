@@ -6,4 +6,8 @@ export class DesignRepositoryImpl implements DesignInterface {
   create(data: Partial<DesignEntity>): Promise<DesignEntity> {
     return DesignModel.create(data);
   }
+
+  getDesignByProjectId(projectId: string): Promise<DesignEntity | null> {
+    return DesignModel.findOne({ projectId });
+  }
 }
