@@ -102,4 +102,21 @@ export class ProjectUseCase {
 
     return deletedProject;
   }
+
+  async getProjectDesign(projectId: string) {
+    const projectDesign =
+      await this.designRepository.getDesignByProjectId(projectId);
+
+    if (!projectDesign) {
+      throw new NotFoundError('Project design not found');
+    }
+
+    const file = await this.s3Service.getProjectDesign(projectDesign.filePath);
+
+    if (!file) {
+      throw new NotFoundError('Project design not found');
+    }
+
+    return file;
+  }
 }

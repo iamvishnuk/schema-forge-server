@@ -11,6 +11,11 @@ const projectRoutes = Router();
 const projectController = new ProjectController();
 
 projectRoutes.get('/', projectController.getProjects);
+projectRoutes.get(
+  '/design/:id',
+  validateParams(IdParamsSchema),
+  projectController.getProjectDesign
+);
 
 projectRoutes.post(
   '/create',

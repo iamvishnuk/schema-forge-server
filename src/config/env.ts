@@ -44,5 +44,12 @@ export const config = {
   AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
   AWS_REGION: process.env.AWS_REGION,
   AWS_BUCKET_NAME: process.env.AWS_BUCKET_NAME,
-  AWS_BUCKET_URL: process.env.AWS_BUCKET_URL
+  AWS_BUCKET_URL: process.env.AWS_BUCKET_URL,
+
+  // Redis configuration
+  REDIS_HOST: process.env.REDIS_HOST || 'localhost',
+  REDIS_PORT: process.env.REDIS_PORT || 6379,
+  REDIS_PASSWORD: process.env.REDIS_PASSWORD || '',
+  REDIS_DB: process.env.REDIS_DB || 0,
+  REDIS_TTL: process.env.REDIS_TTL || 3600
 };

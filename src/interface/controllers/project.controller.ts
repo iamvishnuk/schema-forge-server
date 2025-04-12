@@ -84,4 +84,19 @@ export class ProjectController {
       'Project deleted successfully'
     );
   });
+
+  public getProjectDesign = asyncHandler(
+    async (req: Request, res: Response) => {
+      const projectId = req.params.id;
+
+      const design = await this.projectUseCase.getProjectDesign(projectId);
+
+      ResponseHandler.success(
+        res,
+        design,
+        HTTPSTATUS.OK,
+        'Project design retrieved successfully'
+      );
+    }
+  );
 }
