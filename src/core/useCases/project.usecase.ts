@@ -112,6 +112,7 @@ export class ProjectUseCase {
     }
 
     const file = await this.s3Service.getProjectDesign(projectDesign.filePath);
+    // file data format is { Nodes: [], Edges: []}
 
     if (!file) {
       throw new NotFoundError('Project design not found');

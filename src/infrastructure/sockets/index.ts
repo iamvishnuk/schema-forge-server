@@ -1,14 +1,32 @@
 import { Server, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
+import { ISocketEventHandler } from '../../core/interfaces/ISocketEventHandler';
+import { ProjectSocketEventHandler } from './ProjectSocketEventHandler';
+import { ISocketMiddleware } from '../../core/interfaces/ISocketMiddleware';
+import { SocketAuthMiddleware } from './middlewares/AuthMiddleware';
+import { IRedisService } from '../../core/interfaces/IRedisService';
+import { RedisService } from '../services/redis/services/RedisService';
+import { S3Service } from '../services/s3/services/S3Service';
+import logger from '../../utils/logger';
 
-export class SocketServer {
+export interface ISocketServer {
+  getIO(): Server;
+}
+
+export class SocketServer implements ISocketServer {
   private io: Server;
-  private projectsUsersDetails: Map<
-    string,
-    { userName: string; socketId: string }[]
-  > = new Map();
+  private eventHandlers: ISocketEventHandler[];
+  private middlewares: ISocketMiddleware[];
+  private redisService: IRedisService;
+  private s3Service: S3Service;
 
-  constructor(httpServer: HttpServer) {
+  constructor(
+    httpServer: HttpServer,
+    eventHandlers?: ISocketEventHandler[],
+    middlewares?: ISocketMiddleware[],
+    redisService?: IRedisService,
+    s3Service?: S3Service
+  ) {
     this.io = new Server(httpServer, {
       cors: {
         origin: process.env.APP_ORIGIN,
@@ -18,50 +36,70 @@ export class SocketServer {
       transports: ['websocket', 'polling']
     });
 
-    // this.setupMiddleware();
+    this.redisService = redisService || new RedisService();
+    this.s3Service = s3Service || new S3Service();
+
+    // If no middlewares are provided, use the default SocketAuthMiddleware
+    this.middlewares = middlewares || [new SocketAuthMiddleware()];
+
+    // If no event handlers are provided, use the default ProjectSocketEventHandler
+    this.eventHandlers = eventHandlers || [
+      new ProjectSocketEventHandler(this.io, this.redisService, this.s3Service)
+    ];
+
+    this.setupMiddlewares();
     this.setupEventHandlers();
   }
 
-  // private setupMiddleware(): void {
-  //   this.io.use(authMiddleware);
-  // }
+  /**
+   * Set up socket middlewares
+   */
+  private setupMiddlewares(): void {
+    this.io.use((socket: Socket, next: (err?: Error) => void) => {
+      // Apply each middleware in sequence
+      const applyMiddleware = async (index: number) => {
+        if (index >= this.middlewares.length) {
+          // All middlewares passed, proceed to connection
+          return next();
+        }
+
+        try {
+          // Apply the current middleware
+          await this.middlewares[index].apply(socket, (err?: Error) => {
+            if (err) {
+              // If middleware fails, reject the connection
+              return next(err);
+            }
+
+            // Continue to the next middleware
+            applyMiddleware(index + 1);
+          });
+        } catch (error) {
+          logger.error(`Middleware error: ${error}`);
+          next(new Error('Internal server error'));
+        }
+      };
+
+      // Start applying middlewares from the first one
+      applyMiddleware(0);
+    });
+  }
 
   private setupEventHandlers(): void {
     this.io.on('connection', (socket: Socket) => {
-      console.log(`User connected: ${socket.id}`);
+      logger.info(`User connected: ${socket.id}`);
 
-      // join a room with project id and emit how many user are in the room
-
-      socket.on(
-        'PROJECT:JOIN',
-        ({ projectId, userName }: { projectId: string; userName: string }) => {
-          console.log('projectId', projectId);
-          socket.join(projectId);
-          this.projectsUsersDetails.set(projectId, [
-            ...(this.projectsUsersDetails.get(projectId) || []),
-            { userName, socketId: socket.id }
-          ]);
-          const details = this.projectsUsersDetails.get(projectId);
-          console.log('details', details);
-          this.io.to(projectId).emit('PROJECT:USER_COUNT', details);
-        }
-      );
+      // Register all event handlers for this socket
+      this.eventHandlers.forEach((handler) => {
+        handler.register(socket);
+      });
 
       socket.on('disconnect', () => {
-        console.log(`User disconnected: ${socket.id}`);
-        this.projectsUsersDetails.forEach((users, projectId) => {
-          const userIndex = users.findIndex(
-            (user) => user.socketId === socket.id
-          );
-          if (userIndex !== -1) {
-            users.splice(userIndex, 1);
-            this.projectsUsersDetails.set(projectId, users);
-          }
-        });
+        logger.info(`User disconnected: ${socket.id}`);
 
-        this.projectsUsersDetails.forEach((users, projectId) => {
-          const details = this.projectsUsersDetails.get(projectId);
-          this.io.to(projectId).emit('PROJECT:USER_COUNT', details);
+        // Notify all handlers about the disconnection
+        this.eventHandlers.forEach((handler) => {
+          handler.handleDisconnect(socket);
         });
       });
     });
