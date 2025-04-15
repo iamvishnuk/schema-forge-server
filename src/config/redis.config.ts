@@ -4,6 +4,6 @@ export const redisConfig = {
   host: config.REDIS_HOST,
   port: Number(config.REDIS_PORT),
   password: config.REDIS_PASSWORD,
-  db: config.REDIS_DB,
-  ttl: config.REDIS_TTL
+  db: Number(config.REDIS_DB),
+  ttl: Number(config.REDIS_TTL)
 };
