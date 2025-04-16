@@ -3,6 +3,7 @@ import Redis from 'ioredis';
 import { IRedisService } from '../../../../core/interfaces/IRedisService';
 import { redisConfig } from '../../../../config/redis.config';
 import logger from '../../../../utils/logger';
+import { S3Service } from '../../s3/services/S3Service';
 
 /**
  * Redis service implementation using ioredis
@@ -10,8 +11,13 @@ import logger from '../../../../utils/logger';
  */
 export class RedisService implements IRedisService {
   private client: Redis;
+  private subscriber: Redis;
+  private s3Service: S3Service;
+  private s3UpdateQueue = new Map<string, NodeJS.Timeout>();
 
-  constructor() {
+  constructor(s3Service: S3Service) {
+    this.s3Service = s3Service;
+
     // Create ioredis client with configuration
     this.client = new Redis({
       host: redisConfig.host || 'localhost',
@@ -25,7 +31,20 @@ export class RedisService implements IRedisService {
       }
     });
 
+    // Create a separate Redis client for subscriptions
+    this.subscriber = new Redis({
+      host: redisConfig.host || 'localhost',
+      port: redisConfig.port || 6379,
+      password: redisConfig.password || undefined,
+      db: redisConfig.db || 0,
+      retryStrategy: (times) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      }
+    });
+
     this.setupEventHandlers();
+    this.setupKeyspaceNotifications();
   }
 
   /**
@@ -47,6 +66,83 @@ export class RedisService implements IRedisService {
     this.client.on('end', () => {
       logger.info('Redis connection closed');
     });
+
+    // Set up event handlers for subscriber client
+    this.subscriber.on('error', (err) => {
+      logger.error(`Redis subscriber error: ${err.message}`);
+    });
+
+    this.subscriber.on('connect', () => {
+      logger.info('Redis subscriber connected');
+    });
+  }
+
+  /**
+   * Set up Redis Keyspace Notifications for diagram updates
+   */
+  private setupKeyspaceNotifications(): void {
+    // Configure Redis to publish keyspace events
+    this.subscriber.config('SET', 'notify-keyspace-events', 'KEA');
+
+    // Subscribe to keyspace notifications for diagram keys
+    this.subscriber.psubscribe('__keyspace@*__:project:diagram:*');
+
+    logger.info('Redis Keyspace Notifications configured for diagram updates');
+
+    // Handle keyspace events
+    this.subscriber.on('pmessage', (pattern, channel, message) => {
+      if (message === 'set' || message === 'del') {
+        // Extract the project ID from the channel
+        // Format: __keyspace@0__:project:diagram:projectId
+        const key = channel.split('__:')[1];
+        const projectId = key.split(':')[2];
+
+        logger.info(
+          `Redis event detected for diagram ${projectId}, triggering S3 update`
+        );
+
+        // Trigger S3 update for this project with debouncing
+        this.debouncedS3Update(projectId);
+      }
+    });
+  }
+
+  /**
+   * Debounced S3 update to prevent excessive writes
+   * @param projectId The project ID to update in S3
+   */
+  private debouncedS3Update(projectId: string): void {
+    // Clear any existing timeout for this project
+    if (this.s3UpdateQueue.has(projectId)) {
+      clearTimeout(this.s3UpdateQueue.get(projectId)!);
+    }
+
+    // Set a new timeout (5 seconds)
+    this.s3UpdateQueue.set(
+      projectId,
+      setTimeout(async () => {
+        try {
+          // Get the diagram from Redis
+          const redisCacheKey = `project:diagram:${projectId}`;
+          const diagram =
+            await this.get<Record<string, unknown>>(redisCacheKey);
+
+          if (diagram) {
+            // Update the diagram in S3
+            const filePath = `design/${projectId}/${projectId}-design.json`;
+            await this.s3Service.updateProjectDesign(diagram, filePath);
+
+            logger.info(`Updated S3 diagram for project ${projectId}`);
+          }
+
+          // Remove from queue after update
+          this.s3UpdateQueue.delete(projectId);
+        } catch (error) {
+          logger.error(`Error updating S3 for project ${projectId}: ${error}`);
+          this.s3UpdateQueue.delete(projectId);
+        }
+      }, 5000)
+    );
   }
 
   /**
@@ -110,6 +206,19 @@ export class RedisService implements IRedisService {
    * Close the Redis connection
    */
   async close(): Promise<void> {
+    // Clean up any pending S3 update timers
+    for (const [projectId, timeout] of this.s3UpdateQueue.entries()) {
+      clearTimeout(timeout);
+      logger.info(`Cleared pending S3 update for project ${projectId}`);
+    }
+
+    // Unsubscribe from keyspace notifications
+    await this.subscriber.punsubscribe();
+    await this.subscriber.quit();
+
+    // Close main Redis client
     await this.client.quit();
+
+    logger.info('Redis connections closed');
   }
 }

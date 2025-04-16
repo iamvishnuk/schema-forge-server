@@ -4,7 +4,11 @@
     "atmost",
     "healthcheck",
     "HTTPSTATUS",
+    "Keyspace",
     "otpauth",
+    "pmessage",
+    "psubscribe",
+    "punsubscribe",
     "qrcode",
     "usecase"
   ]
