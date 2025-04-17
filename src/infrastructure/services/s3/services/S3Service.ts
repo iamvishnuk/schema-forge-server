@@ -51,4 +51,29 @@ export class S3Service implements IS3Service {
 
     return parsedContent;
   }
+
+  async updateProjectDesign(
+    diagram: Record<string, unknown>,
+    filePath: string
+  ): Promise<PutObjectResponse> {
+    const command = new PutObjectCommand({
+      Bucket: config.AWS_BUCKET_NAME!,
+      Key: filePath,
+      Body: JSON.stringify(diagram, null, 2),
+      ContentType: 'application/json'
+    });
+
+    try {
+      const result = await s3Client.send(command);
+
+      return {
+        result,
+        filePath,
+        contentType: 'application/json'
+      };
+    } catch (error) {
+      console.error('Error uploading file to S3:', error);
+      throw new InternalServerError('Failed to update project design');
+    }
+  }
 }

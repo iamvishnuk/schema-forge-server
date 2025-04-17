@@ -36,8 +36,11 @@ export class SocketServer implements ISocketServer {
       transports: ['websocket', 'polling']
     });
 
-    this.redisService = redisService || new RedisService();
+    // Initialize S3Service first since RedisService depends on it
     this.s3Service = s3Service || new S3Service();
+
+    // Initialize RedisService with S3Service dependency
+    this.redisService = redisService || new RedisService(this.s3Service);
 
     // If no middlewares are provided, use the default SocketAuthMiddleware
     this.middlewares = middlewares || [new SocketAuthMiddleware()];
