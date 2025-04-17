@@ -4,6 +4,7 @@ import { IRedisService } from '../../core/interfaces/IRedisService';
 import { S3Service } from '../services/s3/services/S3Service';
 import { INode } from '../../definitions/interface';
 import logger from '../../utils/logger';
+import { TField } from '../../definitions/type';
 
 /**
  * Handles project-related socket events
@@ -70,6 +71,80 @@ export class ProjectSocketEventHandler implements ISocketEventHandler {
       'DIAGRAM:NODE_DELETED',
       async ({ projectId, nodeId }: { projectId: string; nodeId: string }) => {
         await this.handleDeleteNode(socket, projectId, nodeId);
+      }
+    );
+
+    // Handle node label change
+    socket.on(
+      'DIAGRAM:NODE_LABEL_CHANGED',
+      async ({
+        projectId,
+        nodeId,
+        label
+      }: {
+        projectId: string;
+        nodeId: string;
+        label: string;
+      }) => {
+        await this.handleNodeLabelChange(socket, projectId, nodeId, label);
+      }
+    );
+
+    // Handle node description change
+    socket.on(
+      'DIAGRAM:NODE_DESCRIPTION_CHANGED',
+      async ({
+        projectId,
+        nodeId,
+        description
+      }: {
+        projectId: string;
+        nodeId: string;
+        description: string;
+      }) => {
+        await this.handleNodeDescriptionChange(
+          socket,
+          projectId,
+          nodeId,
+          description
+        );
+      }
+    );
+
+    // Handle node fields change
+    socket.on(
+      'DIAGRAM:ADD_NODE_FIELDS',
+      async ({
+        projectId,
+        nodeId,
+        fields
+      }: {
+        projectId: string;
+        nodeId: string;
+        fields: TField[];
+      }) => {
+        await this.handleAddFieldsToNode(socket, projectId, nodeId, fields);
+      }
+    );
+
+    // Handle node field delete
+    socket.on(
+      'DIAGRAM:DELETE_NODE_FIELD',
+      async ({
+        projectId,
+        nodeId,
+        fieldId
+      }: {
+        projectId: string;
+        nodeId: string;
+        fieldId: string;
+      }) => {
+        await this.handleFieldDeleteFromNode(
+          socket,
+          projectId,
+          nodeId,
+          fieldId
+        );
       }
     );
   }
@@ -251,6 +326,178 @@ export class ProjectSocketEventHandler implements ISocketEventHandler {
       socket.to(projectId).emit('DIAGRAM:NODE_DELETED', { nodeId });
     } catch (error) {
       logger.error(`Error in handleNodeAdded: ${error}`);
+    }
+  }
+
+  /**
+   * Handle node label change
+   * @param socket The socket that sent the node
+   * @param projectId The project ID
+   * @param nodeId The ID of the node
+   * @param label The new label for the node
+   */
+  private async handleNodeLabelChange(
+    socket: Socket,
+    projectId: string,
+    nodeId: string,
+    label: string
+  ): Promise<void> {
+    try {
+      // Get the current diagram from Redis
+      const redisCacheKey = `project:diagram:${projectId}`;
+      const diagram =
+        await this.redisService.get<Record<string, unknown>>(redisCacheKey);
+
+      if (diagram?.Nodes) {
+        const nodes = diagram.Nodes as INode[];
+        const updatedNodes = nodes.map((node) => {
+          if (node.id === nodeId) {
+            return { ...node, data: { ...node.data, label } };
+          }
+          return node;
+        });
+
+        diagram.Nodes = updatedNodes;
+        await this.redisService.set(redisCacheKey, diagram, 3600);
+      }
+
+      // Broadcast the node label change to all other users in the project
+      socket
+        .to(projectId)
+        .emit('DIAGRAM:NODE_LABEL_CHANGED', { nodeId, label });
+    } catch (error) {
+      logger.error(`Error in handleNodeLabelChange: ${error}`);
+    }
+  }
+
+  /**
+   * Handle node label change
+   * @param socket The socket that sent the node
+   * @param projectId The project ID
+   * @param nodeId The ID of the node
+   * @param description The new label for the node
+   */
+  private async handleNodeDescriptionChange(
+    socket: Socket,
+    projectId: string,
+    nodeId: string,
+    description: string
+  ): Promise<void> {
+    try {
+      // Get the current diagram from Redis
+      const redisCacheKey = `project:diagram:${projectId}`;
+      const diagram =
+        await this.redisService.get<Record<string, unknown>>(redisCacheKey);
+
+      if (diagram?.Nodes) {
+        const nodes = diagram.Nodes as INode[];
+        const updatedNodes = nodes.map((node) => {
+          if (node.id === nodeId) {
+            return { ...node, data: { ...node.data, description } };
+          }
+          return node;
+        });
+
+        diagram.Nodes = updatedNodes;
+        await this.redisService.set(redisCacheKey, diagram, 3600);
+      }
+
+      // Broadcast the node label change to all other users in the project
+      socket
+        .to(projectId)
+        .emit('DIAGRAM:NODE_DESCRIPTION_CHANGED', { nodeId, description });
+    } catch (error) {
+      logger.error(`Error in handleNodeDescriptionChange: ${error}`);
+    }
+  }
+
+  /**
+   * Handle add fields to Node
+   * @param socket The socket that sent the node
+   * @param projectId The project ID
+   * @param nodeId The ID of the node
+   * @param fields The fields to add to the node
+   */
+  private async handleAddFieldsToNode(
+    socket: Socket,
+    projectId: string,
+    nodeId: string,
+    fields: TField[]
+  ): Promise<void> {
+    try {
+      // Get the current diagram from Redis
+      const redisCacheKey = `project:diagram:${projectId}`;
+      const diagram =
+        await this.redisService.get<Record<string, unknown>>(redisCacheKey);
+
+      if (diagram?.Nodes) {
+        const nodes = diagram.Nodes as INode[];
+        const updatedNodes = nodes.map((node) => {
+          if (node.id === nodeId) {
+            return {
+              ...node,
+              data: { ...node.data, fields: [...node.data.fields, ...fields] }
+            };
+          }
+          return node;
+        });
+
+        diagram.Nodes = updatedNodes;
+        await this.redisService.set(redisCacheKey, diagram, 3600);
+      }
+
+      // Broadcast the node label change to all other users in the project
+      socket.to(projectId).emit('DIAGRAM:ADD_NODE_FIELDS', { nodeId, fields });
+    } catch (error) {
+      logger.error(`Error in handleAddFieldsToNode: ${error}`);
+    }
+  }
+
+  /**
+   * Handle delete fields from Node
+   * @param socket The socket that sent the node
+   * @param projectId The project ID
+   * @param nodeId The ID of the node
+   * @param fieldId The ID of the field to delete
+   */
+  private async handleFieldDeleteFromNode(
+    socket: Socket,
+    projectId: string,
+    nodeId: string,
+    fieldId: string
+  ): Promise<void> {
+    try {
+      // Get the current diagram from Redis
+      const redisCacheKey = `project:diagram:${projectId}`;
+      const diagram =
+        await this.redisService.get<Record<string, unknown>>(redisCacheKey);
+
+      if (diagram?.Nodes) {
+        const nodes = diagram.Nodes as INode[];
+        const updatedNodes = nodes.map((node) => {
+          if (node.id === nodeId) {
+            const updatedField = node?.data.fields.filter(
+              (field) => field.id !== fieldId
+            );
+
+            return {
+              ...node,
+              data: { ...node.data, fields: updatedField }
+            };
+          }
+          return node;
+        });
+
+        diagram.Nodes = updatedNodes;
+        await this.redisService.set(redisCacheKey, diagram, 3600);
+      }
+
+      // Broadcast the node field delete to all other user in the project
+      socket
+        .to(projectId)
+        .emit('DIAGRAM:DELETE_NODE_FIELD', { nodeId, fieldId });
+    } catch (error) {
+      logger.error(`Error in handleFieldDeleteFromNode: ${error}`);
     }
   }
 }
