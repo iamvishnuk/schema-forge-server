@@ -2,9 +2,9 @@ import { Server, Socket } from 'socket.io';
 import { ISocketEventHandler } from '../../core/interfaces/ISocketEventHandler';
 import { IRedisService } from '../../core/interfaces/IRedisService';
 import { S3Service } from '../services/s3/services/S3Service';
-import { INode } from '../../definitions/interface';
+import { IEdge, INode } from '../../definitions/interface';
 import logger from '../../utils/logger';
-import { TField } from '../../definitions/type';
+import { TField, XYPosition } from '../../definitions/type';
 
 /**
  * Handles project-related socket events
@@ -41,6 +41,19 @@ export class ProjectSocketEventHandler implements ISocketEventHandler {
         userName: string;
       }) => {
         await this.handleProjectJoin(socket, projectId, userName);
+      }
+    );
+
+    socket.on(
+      'PROJECT:LEAVE',
+      async ({
+        projectId,
+        userName
+      }: {
+        projectId: string;
+        userName: string;
+      }) => {
+        await this.handleProjectLeave(socket, projectId, userName);
       }
     );
 
@@ -147,6 +160,96 @@ export class ProjectSocketEventHandler implements ISocketEventHandler {
         );
       }
     );
+
+    // Handle editor mouse move event
+    socket.on(
+      'EDITOR:MOUSE_MOVE',
+      async ({
+        projectId,
+        userId,
+        userName,
+        position
+      }: {
+        projectId: string;
+        userId: string;
+        userName: string;
+        position: { x: number; y: number };
+      }) => {
+        await this.handleEditorMouseMove(
+          socket,
+          projectId,
+          userId,
+          userName,
+          position
+        );
+      }
+    );
+
+    // handle node drag event
+    socket.on(
+      'DIAGRAM:NODE_DRAG',
+      async ({
+        projectId,
+        nodeId,
+        position
+      }: {
+        projectId: string;
+        nodeId: string;
+        position: { x: number; y: number };
+      }) => {
+        await this.handleNodeMovement(socket, projectId, nodeId, position);
+      }
+    );
+
+    // Handle node drag stop event
+    socket.on(
+      'DIAGRAM:NODE_DRAG_STOP',
+      async ({
+        projectId,
+        nodeId,
+        position
+      }: {
+        projectId: string;
+        nodeId: string;
+        position: { x: number; y: number };
+      }) => {
+        await this.handleNodeDragStop(socket, projectId, nodeId, position);
+      }
+    );
+
+    // Handle edge add event
+    socket.on(
+      'DIAGRAM:EDGE_ADDED',
+      async ({ projectId, edge }: { projectId: string; edge: IEdge }) => {
+        await this.handleEdgeAdd(socket, projectId, edge);
+      }
+    );
+
+    // Handle edge delete event
+    socket.on(
+      'DIAGRAM:EDGE_DELETED',
+      async ({ projectId, edgeId }: { projectId: string; edgeId: string }) => {
+        await this.handleEdgeDelete(socket, projectId, edgeId);
+      }
+    );
+
+    // Handle edge update event
+    socket.on(
+      'DIAGRAM:EDGE_UPDATE',
+      async ({
+        projectId,
+        edgeId,
+        property,
+        value
+      }: {
+        projectId: string;
+        edgeId: string;
+        property: string;
+        value: string | number | unknown;
+      }) => {
+        await this.handleEdgeUpdate(socket, projectId, edgeId, property, value);
+      }
+    );
   }
 
   /**
@@ -234,6 +337,36 @@ export class ProjectSocketEventHandler implements ISocketEventHandler {
       socket.emit('DIAGRAM:INITIAL', diagram);
     } catch (error) {
       logger.error(`Error in handleProjectJoin: ${error}`);
+    }
+  }
+
+  private async handleProjectLeave(
+    socket: Socket,
+    projectId: string,
+    userName: string
+  ) {
+    try {
+      logger.info(`User ${userName} left project ${projectId}`);
+
+      // Leave the room for this project
+      socket.leave(projectId);
+
+      // Remove user from project users list
+      const users = this.projectsUsersDetails.get(projectId);
+      if (users) {
+        const userIndex = users.findIndex(
+          (user) => user.socketId === socket.id
+        );
+        if (userIndex !== -1) {
+          users.splice(userIndex, 1);
+          this.projectsUsersDetails.set(projectId, users);
+        }
+      }
+
+      // Emit updated user count to all users in the project
+      this.io.to(projectId).emit('PROJECT:USER_COUNT', users);
+    } catch (error) {
+      logger.error(`Error in handleProjectLeave: ${error}`);
     }
   }
 
@@ -499,5 +632,191 @@ export class ProjectSocketEventHandler implements ISocketEventHandler {
     } catch (error) {
       logger.error(`Error in handleFieldDeleteFromNode: ${error}`);
     }
+  }
+
+  /**
+   * Handle editor mouse move event
+   * @param socket The socket that sent the mouse position
+   * @param projectId The project ID
+   * @param userId The user ID
+   * @param userName The user name
+   * @param position The mouse position coordinates
+   */
+  private async handleEditorMouseMove(
+    socket: Socket,
+    projectId: string,
+    userId: string,
+    userName: string,
+    position: { x: number; y: number }
+  ): Promise<void> {
+    try {
+      // Broadcast the mouse position to all other users in the project
+      socket.to(projectId).emit('EDITOR:MOUSE_MOVE', {
+        userId,
+        userName,
+        position,
+        projectId
+      });
+    } catch (error) {
+      logger.error(`Error in handleEditorMouseMove: ${error}`);
+    }
+  }
+
+  /**
+   * Handle node movement in editor
+   * @param socket The socket that sent the node position
+   * @param projectId the project Id
+   * @param nodeId the node Id
+   * @param position the new position of the node
+   */
+  private async handleNodeMovement(
+    socket: Socket,
+    projectId: string,
+    nodeId: string,
+    position: XYPosition
+  ): Promise<void> {
+    // Broadcast the node movement to all other users in the project
+    socket.to(projectId).emit('DIAGRAM:NODE_DRAG', { nodeId, position });
+  }
+
+  /**
+   * Handle node drag stop event
+   * @param socket the socket that send the node position
+   * @param projectId the project
+   * @param nodeId the id of the node
+   * @param position the new position of the node
+   */
+  private async handleNodeDragStop(
+    socket: Socket,
+    projectId: string,
+    nodeId: string,
+    position: XYPosition
+  ): Promise<void> {
+    const redisCacheKey = `project:diagram:${projectId}`;
+    const diagram =
+      await this.redisService.get<Record<string, unknown>>(redisCacheKey);
+
+    if (diagram?.Nodes) {
+      const nodes = diagram?.Nodes as INode[];
+      const updatedNodes = nodes.map((node) => {
+        if (node.id === nodeId) {
+          return { ...node, position };
+        }
+        return node;
+      });
+
+      diagram.Nodes = updatedNodes;
+      await this.redisService.set(redisCacheKey, diagram, 3600);
+    }
+
+    // Broadcast the node movement to all other users in the project
+    socket.to(projectId).emit('DIAGRAM:NODE_DRAG_STOP', { nodeId, position });
+  }
+
+  /**
+   * Handle edge addition event
+   * @param socket The socket that sent the edge
+   * @param projectId The project ID
+   * @param edge The new edge that was added
+   */
+  private async handleEdgeAdd(
+    socket: Socket,
+    projectId: string,
+    edge: IEdge
+  ): Promise<void> {
+    const redisCacheKey = `project:diagram:${projectId}`;
+    const diagram =
+      await this.redisService.get<Record<string, unknown>>(redisCacheKey);
+
+    if (diagram) {
+      if (diagram.Edges) {
+        const edges = diagram.Edges as IEdge[];
+        const updatedEdges = [...edges, edge];
+        diagram.Edges = updatedEdges;
+      } else {
+        diagram.Edges = [edge];
+      }
+      await this.redisService.set(redisCacheKey, diagram, 3600);
+    }
+
+    // Broadcast the edge addition to all other users in the project
+    socket.to(projectId).emit('DIAGRAM:EDGE_ADDED', edge);
+  }
+
+  /**
+   * Handle edge deletion event
+   * @param socket The socket that sent the edge ID
+   * @param projectId The project ID
+   * @param edgeId The ID of the edge to delete
+   */
+  private async handleEdgeDelete(
+    socket: Socket,
+    projectId: string,
+    edgeId: string
+  ): Promise<void> {
+    const redisCacheKey = `project:diagram:${projectId}`;
+    const diagram =
+      await this.redisService.get<Record<string, unknown>>(redisCacheKey);
+
+    if (diagram?.Edges) {
+      const edges = diagram.Edges as IEdge[];
+      const updatedEdges = edges.filter((edge) => edge.id !== edgeId);
+      diagram.Edges = updatedEdges;
+      await this.redisService.set(redisCacheKey, diagram, 3600);
+    }
+
+    socket.to(projectId).emit('DIAGRAM:EDGE_DELETED', { edgeId });
+  }
+
+  /**
+   * Handle edge update event
+   * @param socket The socket that sent the edge update
+   * @param projectId The project ID
+   * @param edgeId The ID of the edge to update
+   * @param property The property to update
+   * @param value The new value for the property
+   */
+  private async handleEdgeUpdate(
+    socket: Socket,
+    projectId: string,
+    edgeId: string,
+    property: string,
+    value: string | number | unknown
+  ): Promise<void> {
+    const redisCacheKey = `project:diagram:${projectId}`;
+    const diagram =
+      await this.redisService.get<Record<string, unknown>>(redisCacheKey);
+
+    if (diagram?.Edges) {
+      const edges = diagram.Edges as IEdge[];
+      const updatedEdges = edges.map((edge) => {
+        if (edge.id === edgeId) {
+          let updatedEdge;
+          // For label property, ensure we're not creating new key-pairs
+          if (property === 'label') {
+            updatedEdge = {
+              ...edge,
+              label: value // Explicitly update the label property
+            };
+          }
+
+          // Handle other properties normally
+          updatedEdge = {
+            ...edge,
+            [property]: value
+          };
+
+          return updatedEdge;
+        }
+        return edge;
+      });
+
+      diagram.Edges = updatedEdges;
+      await this.redisService.set(redisCacheKey, diagram, 3600);
+    }
+
+    socket
+      .to(projectId)
+      .emit('DIAGRAM:EDGE_UPDATE', { edgeId, property, value });
   }
 }
