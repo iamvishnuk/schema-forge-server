@@ -4,7 +4,7 @@ import { UserEntity } from './user.entity';
 export enum TeamRoleEnum {
   OWNER = 'owner',
   ADMIN = 'admin',
-  MEMBER = 'member',
+  EDITOR = 'editor',
   VIEWER = 'viewer'
 }
 
