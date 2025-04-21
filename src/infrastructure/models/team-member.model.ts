@@ -23,7 +23,7 @@ const TeamMemberSchema = new Schema<TeamMemberDocument>(
       ref: 'Team',
       index: true
     },
-    role: { type: String, enum: TeamRoleEnum, default: TeamRoleEnum.MEMBER },
+    role: { type: String, enum: TeamRoleEnum, default: TeamRoleEnum.EDITOR },
     joinedAt: { type: Date, default: Date.now() },
     status: {
       type: String,

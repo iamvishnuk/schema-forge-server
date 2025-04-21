@@ -10,6 +10,7 @@
     "psubscribe",
     "punsubscribe",
     "qrcode",
+    "reconnectable",
     "usecase"
   ]
 }
