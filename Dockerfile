@@ -25,8 +25,6 @@ COPY --from=builder /app/swagger.yaml ./swagger.yaml
 
 RUN npm ci --omit=dev
 
-ENV NODE_ENV=production
-
 EXPOSE 8000
 
 CMD ["node", "dist/index.js"]

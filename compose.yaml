@@ -8,7 +8,6 @@ services:
     env_file:
       - .env.production
     environment:
-      - NODE_ENV=production
       - HUSKY=0
     restart: unless-stopped
     depends_on:
