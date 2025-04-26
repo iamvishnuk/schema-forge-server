@@ -120,4 +120,61 @@ export class ProjectUseCase {
 
     return file;
   }
+
+  async getProjectAssociatedTeamsAndMembers(
+    projectId: string
+  ): Promise<ProjectEntity[]> {
+    const project = await this.projectRepository.findProjectById(projectId);
+
+    if (!project) {
+      throw new NotFoundError('Project not found');
+    }
+
+    const teams =
+      await this.projectRepository.findProjectAssociatedTeams(projectId);
+
+    return teams;
+  }
+
+  async addTeamToProject(
+    teamIds: string[],
+    projectId: string
+  ): Promise<ProjectEntity> {
+    const updateProject = await this.projectRepository.addTeamToProject(
+      projectId,
+      teamIds
+    );
+
+    if (!updateProject) {
+      throw new NotFoundError('Project not found');
+    }
+
+    return updateProject;
+  }
+
+  async removeTeamFromProject(
+    projectId: string,
+    teamId: string
+  ): Promise<ProjectEntity> {
+    const updateProject = await this.projectRepository.removeTeamFromProject(
+      projectId,
+      teamId
+    );
+
+    if (!updateProject) {
+      throw new NotFoundError('Project not found');
+    }
+
+    return updateProject;
+  }
+
+  async getProjectDetails(projectId: string): Promise<ProjectEntity> {
+    const project = await this.projectRepository.findProjectById(projectId);
+
+    if (!project) {
+      throw new NotFoundError('Project not found');
+    }
+
+    return project;
+  }
 }
