@@ -58,3 +58,19 @@ export const CreateProjectSchema = z
       path: ['connectionString'] // This specifies which field the error belongs to
     }
   );
+
+export const addTeamToProjectSchema = z.object({
+  projectId: z
+    .string({ required_error: 'Project Id is required' })
+    .min(1, { message: 'Project Id is required' }),
+  teamIds: z
+    .array(z.string())
+    .min(1, { message: 'Please select at least one team' })
+});
+
+export const removeTeamFromProjectSchema = z.object({
+  projectId: z
+    .string({ required_error: 'Project Id is required' })
+    .min(1, { message: 'Project Id is required' }),
+  teamId: z.string().min(1, { message: 'Please select at least one team' })
+});

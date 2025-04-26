@@ -99,4 +99,73 @@ export class ProjectController {
       );
     }
   );
+
+  public getProjectAssociatedTeamsAndMembers = asyncHandler(
+    async (req: Request, res: Response) => {
+      const projectId = req.params.id;
+
+      const teams =
+        await this.projectUseCase.getProjectAssociatedTeamsAndMembers(
+          projectId
+        );
+
+      ResponseHandler.success(
+        res,
+        teams,
+        HTTPSTATUS.OK,
+        'Project associated teams and members retrieved successfully'
+      );
+    }
+  );
+
+  public addTeamToProject = asyncHandler(
+    async (req: Request, res: Response) => {
+      const { projectId, teamIds } = req.body;
+
+      const team = await this.projectUseCase.addTeamToProject(
+        teamIds,
+        projectId
+      );
+
+      ResponseHandler.success(
+        res,
+        team,
+        HTTPSTATUS.OK,
+        'Team added to project successfully'
+      );
+    }
+  );
+
+  public removeTeamFromProject = asyncHandler(
+    async (req: Request, res: Response) => {
+      const { projectId, teamId } = req.body;
+
+      const team = await this.projectUseCase.removeTeamFromProject(
+        projectId,
+        teamId
+      );
+
+      ResponseHandler.success(
+        res,
+        team,
+        HTTPSTATUS.OK,
+        'Team removed from project successfully'
+      );
+    }
+  );
+
+  public getProjectDetails = asyncHandler(
+    async (req: Request, res: Response) => {
+      const projectId = req.params.id;
+
+      const project = await this.projectUseCase.getProjectDetails(projectId);
+
+      ResponseHandler.success(
+        res,
+        project,
+        HTTPSTATUS.OK,
+        'Project details retrieved successfully'
+      );
+    }
+  );
 }

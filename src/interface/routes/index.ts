@@ -8,6 +8,11 @@ import projectRoutes from './project.routes';
 
 const router = Router();
 
+// Health check endpoint for Docker health checks
+router.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 router.use('/auth', authRoutes);
 router.use('/session', authenticateJWT, sessionRoutes);
 router.use('/mfa', mfaRoutes);

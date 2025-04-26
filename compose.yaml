@@ -10,11 +10,26 @@ services:
     environment:
       - HUSKY=0
     restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:8000/api/v1/health'
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
 
   redis:
-    image: redis/redis-stack:latest
+    image: redis:7-alpine
     ports:
       - '6379:6379'
     healthcheck:
