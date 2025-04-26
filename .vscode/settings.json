@@ -5,6 +5,7 @@
     "healthcheck",
     "HTTPSTATUS",
     "Keyspace",
+    "nodemon",
     "otpauth",
     "pmessage",
     "psubscribe",
