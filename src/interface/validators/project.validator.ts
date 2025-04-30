@@ -9,7 +9,6 @@ export const CreateProjectSchema = z
       .min(1, { message: 'Project name is required' })
       .max(50, { message: 'Project name should not exceed 50 characters' }),
     description: z.string().optional(),
-    teamIds: z.array(z.string()).optional().default([]),
     databaseType: z.nativeEnum(ProjectDataBaseTypeEnum, {
       message: 'Database type is required'
     }),
@@ -59,18 +58,17 @@ export const CreateProjectSchema = z
     }
   );
 
-export const addTeamToProjectSchema = z.object({
-  projectId: z
-    .string({ required_error: 'Project Id is required' })
-    .min(1, { message: 'Project Id is required' }),
-  teamIds: z
-    .array(z.string())
-    .min(1, { message: 'Please select at least one team' })
+export const AcceptProjectInviteSchema = z.object({
+  token: z
+    .string({ required_error: 'Token is required' })
+    .min(1, { message: 'Token is required' })
 });
 
-export const removeTeamFromProjectSchema = z.object({
+export const ProjectInviteSchema = z.object({
+  emails: z
+    .array(z.string().email({ message: '' }))
+    .min(1, { message: 'At least one email is required' }),
   projectId: z
-    .string({ required_error: 'Project Id is required' })
-    .min(1, { message: 'Project Id is required' }),
-  teamId: z.string().min(1, { message: 'Please select at least one team' })
+    .string({ required_error: 'Project ID is required' })
+    .min(1, { message: 'Project ID is required' })
 });

@@ -6,28 +6,36 @@ import { ResponseHandler } from '../../utils/responseHandler';
 import { HTTPSTATUS } from '../../config/http.config';
 import { S3Service } from '../../infrastructure/services/s3/services/S3Service';
 import { DesignRepositoryImpl } from '../../infrastructure/repositories/design.repository';
+import { ProjectMemberRepositoryImpl } from '../../infrastructure/repositories/project-member.repository';
+import { NodemailerService } from '../../infrastructure/services/email/services/NodemailerService';
 
 export class ProjectController {
   private projectRepository: ProjectRepositoryImpl;
   private designRepository: DesignRepositoryImpl;
   private projectUseCase: ProjectUseCase;
   private s3Service: S3Service;
+  private projectMemberRepository: ProjectMemberRepositoryImpl;
+  private emailService: NodemailerService;
 
   constructor() {
     this.projectRepository = new ProjectRepositoryImpl();
     this.designRepository = new DesignRepositoryImpl();
     this.s3Service = new S3Service();
+    this.projectMemberRepository = new ProjectMemberRepositoryImpl();
+    this.emailService = new NodemailerService();
     this.projectUseCase = new ProjectUseCase(
       this.projectRepository,
       this.s3Service,
-      this.designRepository
+      this.designRepository,
+      this.projectMemberRepository,
+      this.emailService
     );
   }
 
   public createProject = asyncHandler(async (req: Request, res: Response) => {
     const userId = req?.user?._id as string;
     const data = req.body;
-    const project = await this.projectUseCase.createTeam(data, userId);
+    const project = await this.projectUseCase.createProject(data, userId);
 
     ResponseHandler.success(
       res,
@@ -100,60 +108,6 @@ export class ProjectController {
     }
   );
 
-  public getProjectAssociatedTeamsAndMembers = asyncHandler(
-    async (req: Request, res: Response) => {
-      const projectId = req.params.id;
-
-      const teams =
-        await this.projectUseCase.getProjectAssociatedTeamsAndMembers(
-          projectId
-        );
-
-      ResponseHandler.success(
-        res,
-        teams,
-        HTTPSTATUS.OK,
-        'Project associated teams and members retrieved successfully'
-      );
-    }
-  );
-
-  public addTeamToProject = asyncHandler(
-    async (req: Request, res: Response) => {
-      const { projectId, teamIds } = req.body;
-
-      const team = await this.projectUseCase.addTeamToProject(
-        teamIds,
-        projectId
-      );
-
-      ResponseHandler.success(
-        res,
-        team,
-        HTTPSTATUS.OK,
-        'Team added to project successfully'
-      );
-    }
-  );
-
-  public removeTeamFromProject = asyncHandler(
-    async (req: Request, res: Response) => {
-      const { projectId, teamId } = req.body;
-
-      const team = await this.projectUseCase.removeTeamFromProject(
-        projectId,
-        teamId
-      );
-
-      ResponseHandler.success(
-        res,
-        team,
-        HTTPSTATUS.OK,
-        'Team removed from project successfully'
-      );
-    }
-  );
-
   public getProjectDetails = asyncHandler(
     async (req: Request, res: Response) => {
       const projectId = req.params.id;
@@ -166,6 +120,60 @@ export class ProjectController {
         HTTPSTATUS.OK,
         'Project details retrieved successfully'
       );
+    }
+  );
+
+  public getProjectMembers = asyncHandler(
+    async (req: Request, res: Response) => {
+      const projectId = req.params.id;
+
+      const { project, member } =
+        await this.projectUseCase.getProjectMembers(projectId);
+
+      ResponseHandler.success(
+        res,
+        {
+          project,
+          member
+        },
+        HTTPSTATUS.OK,
+        'Project members retrieved successfully'
+      );
+    }
+  );
+
+  public acceptProjectInvite = asyncHandler(
+    async (req: Request, res: Response) => {
+      const token = req.body.token;
+      const userId = req?.user?._id as string;
+
+      const projectMember = await this.projectUseCase.acceptProjectInvite(
+        token,
+        userId
+      );
+
+      ResponseHandler.success(
+        res,
+        projectMember,
+        HTTPSTATUS.OK,
+        'Project invite accepted successfully'
+      );
+    }
+  );
+
+  public sendProjectInvitation = asyncHandler(
+    async (req: Request, res: Response) => {
+      const emails = req.body.emails;
+      const projectId = req.body.projectId;
+      const userName = req.user?.name as string;
+
+      const { message } = await this.projectUseCase.sendProjectInvite(
+        projectId,
+        emails,
+        userName
+      );
+
+      ResponseHandler.success(res, {}, HTTPSTATUS.OK, message);
     }
   );
 }
