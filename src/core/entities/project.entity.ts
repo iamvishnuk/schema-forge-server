@@ -11,11 +11,11 @@ export interface ProjectEntity {
   _id: string | unknown;
   name: string;
   description: string;
-  teamIds: mongoose.Types.ObjectId[];
   databaseType: ProjectDataBaseTypeEnum;
   tag: string[];
   connectionString: string;
   createdBy: mongoose.Types.ObjectId;
+  inviteToken: string;
   createdAt: Date;
   updatedAt: Date;
 }

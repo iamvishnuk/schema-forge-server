@@ -1,3 +1,5 @@
+import { ProjectMemberRoleEnum } from '../../../../core/entities/project-member.entity';
+
 export const verifyEmailTemplate = (
   url: string,
   brandColor: string = '#2563EB'
@@ -98,5 +100,49 @@ export const teamInvitationTemplate = (
         </div>
       </div>
     </body></html>
+  `
+});
+
+export const projectInvitationTemplate = (
+  url: string,
+  projectName: string,
+  invitedBy: string,
+  role: ProjectMemberRoleEnum,
+  brandColor: string = '#2563EB'
+) => ({
+  subject: `You're Invited to Join ${projectName} on Schema Forge`,
+  text: `Hello,\n\n${invitedBy} has invited you to join the project "${projectName}" on Schema Forge as a ${role}. Click the link below to accept the invitation:\n${url}\n\nIf you did not expect this invitation, you can ignore this email.`,
+  html: `
+  <html><head><style>
+  body, html { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4; color: #333333; }
+  .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1); }
+  .header { background-color: ${brandColor}; font-size: 24px; font-weight: bold; color: #ffffff; padding: 20px; text-align: center; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+  .content { padding: 20px; text-align: center; }
+  .content h1 { font-size: 24px; color: #333333; }
+  .content p { font-size: 16px; color: #666666; margin: 10px 0 20px; }
+  .project-details { background-color: #f8f9fa; border-radius: 5px; padding: 15px; margin: 20px 0; text-align: left; }
+  .project-details p { margin: 5px 0; }
+  .button { display: inline-block; padding: 15px 25px; font-size: 16px; font-weight: bold; background-color: ${brandColor}; color: #fff !important; border-radius: 5px; text-decoration: none; margin-top: 20px; }
+  .footer { font-size: 14px; color: #999999; text-align: center; padding: 20px; }
+  </style></head><body>
+  <div class="container">
+    <div class="header">Schema Forge</div>
+    <div class="content">
+      <h1>Project Invitation</h1>
+      <p>${invitedBy} has invited you to join a project on Schema Forge</p>
+      
+      <div class="project-details">
+        <p><strong>Project:</strong> ${projectName}</p>
+        <p><strong>Your Role:</strong> ${role}</p>
+      </div>
+      
+      <a href="${url}" class="button">Accept Invitation</a>
+      <p>If you did not expect this invitation, you can ignore this email.</p>
+    </div>
+    <div class="footer">
+      <p>If you have any questions, feel free to reply to this email or contact our support team.</p>
+    </div>
+  </div>
+  </body></html>
   `
 });
