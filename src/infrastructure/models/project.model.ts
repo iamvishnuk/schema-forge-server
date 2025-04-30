@@ -3,6 +3,7 @@ import {
   ProjectDataBaseTypeEnum,
   ProjectEntity
 } from '../../core/entities/project.entity';
+import { generateUniqueCode } from '../../utils/uuid';
 
 export interface ProductDocument extends Omit<ProjectEntity, '_id'>, Document {}
 
@@ -10,13 +11,6 @@ const ProjectSchema = new Schema<ProductDocument>(
   {
     name: { type: String, required: true },
     description: { type: String },
-    teamIds: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'Team',
-        index: true
-      }
-    ],
     databaseType: {
       type: String,
       enum: ProjectDataBaseTypeEnum,
@@ -29,6 +23,12 @@ const ProjectSchema = new Schema<ProductDocument>(
       required: true,
       ref: 'User',
       index: true
+    },
+    inviteToken: {
+      type: String,
+      required: true,
+      unique: true,
+      default: generateUniqueCode
     }
   },
   { timestamps: true, versionKey: false }

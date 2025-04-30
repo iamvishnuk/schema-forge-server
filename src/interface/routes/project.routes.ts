@@ -5,9 +5,9 @@ import {
   validateRequest
 } from '../middlewares/requestValidator.middleware';
 import {
-  addTeamToProjectSchema,
+  AcceptProjectInviteSchema,
   CreateProjectSchema,
-  removeTeamFromProjectSchema
+  ProjectInviteSchema
 } from '../validators/project.validator';
 import { IdParamsSchema } from '../validators/team.validator';
 
@@ -26,9 +26,9 @@ projectRoutes.get(
   projectController.getProjectDesign
 );
 projectRoutes.get(
-  '/teams-and-members/:id',
+  '/members/:id',
   validateParams(IdParamsSchema),
-  projectController.getProjectAssociatedTeamsAndMembers
+  projectController.getProjectMembers
 );
 
 projectRoutes.post(
@@ -36,21 +36,21 @@ projectRoutes.post(
   validateRequest(CreateProjectSchema),
   projectController.createProject
 );
+projectRoutes.post(
+  '/accept-invite',
+  validateRequest(AcceptProjectInviteSchema),
+  projectController.acceptProjectInvite
+);
+projectRoutes.post(
+  '/invite',
+  validateRequest(ProjectInviteSchema),
+  projectController.sendProjectInvitation
+);
 
 projectRoutes.put(
   '/update/:id',
   validateRequest(CreateProjectSchema),
   projectController.updateProject
-);
-projectRoutes.put(
-  '/add-team',
-  validateRequest(addTeamToProjectSchema),
-  projectController.addTeamToProject
-);
-projectRoutes.put(
-  '/remove-team',
-  validateRequest(removeTeamFromProjectSchema),
-  projectController.removeTeamFromProject
 );
 
 projectRoutes.delete(

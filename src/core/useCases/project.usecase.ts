@@ -1,26 +1,39 @@
 import mongoose, { Types } from 'mongoose';
 import { ProjectEntity } from '../entities/project.entity';
 import { ProjectInterface } from '../interfaces/project.interface';
-import { ForbiddenError, NotFoundError } from '../../utils/error';
+import {
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError
+} from '../../utils/error';
 import { IS3Service } from '../../infrastructure/services/s3/interface/IS3Service';
 import { DesignInterface } from '../interfaces/design.interface';
 import { DesignEntity } from '../entities/design.entity';
+import { ProjectMemberInterface } from '../interfaces/IProjectMember';
+import {
+  ProjectMemberEntity,
+  ProjectMemberRoleEnum
+} from '../entities/project-member.entity';
+import { IEmailService } from '../../infrastructure/services/email/interface/IEmailService';
+import { projectInvitationTemplate } from '../../infrastructure/services/email/templates/template';
+import { config } from '../../config/env';
 
 export class ProjectUseCase {
   constructor(
     private projectRepository: ProjectInterface,
     private s3Service: IS3Service,
-    private designRepository: DesignInterface
+    private designRepository: DesignInterface,
+    private projectMemberRepository: ProjectMemberInterface,
+    private emailService: IEmailService
   ) {}
 
-  async createTeam(
+  async createProject(
     data: Partial<ProjectEntity>,
     userId: string
   ): Promise<ProjectEntity> {
     const projectData: Partial<ProjectEntity> = {
       name: data.name,
       description: data.description,
-      teamIds: data.teamIds,
       databaseType: data.databaseType,
       tag: data.tag,
       connectionString: data.connectionString,
@@ -44,7 +57,17 @@ export class ProjectUseCase {
   }
 
   async getProjects(userId: string): Promise<ProjectEntity[]> {
-    return await this.projectRepository.getProjects(userId);
+    const [userOwnedProject, userAccessibleProject] = await Promise.all([
+      this.projectRepository.getProjects(userId),
+      this.projectMemberRepository.getProjectByUserId(userId)
+    ]);
+
+    const allProject = [
+      ...userOwnedProject,
+      ...userAccessibleProject.map((project) => project.projectId)
+    ];
+
+    return allProject as ProjectEntity[];
   }
 
   async updateProject(
@@ -65,7 +88,6 @@ export class ProjectUseCase {
     const projectData: Partial<ProjectEntity> = {
       name: data.name,
       description: data.description,
-      teamIds: data.teamIds,
       databaseType: data.databaseType,
       tag: data.tag,
       connectionString: data.connectionString
@@ -121,53 +143,6 @@ export class ProjectUseCase {
     return file;
   }
 
-  async getProjectAssociatedTeamsAndMembers(
-    projectId: string
-  ): Promise<ProjectEntity[]> {
-    const project = await this.projectRepository.findProjectById(projectId);
-
-    if (!project) {
-      throw new NotFoundError('Project not found');
-    }
-
-    const teams =
-      await this.projectRepository.findProjectAssociatedTeams(projectId);
-
-    return teams;
-  }
-
-  async addTeamToProject(
-    teamIds: string[],
-    projectId: string
-  ): Promise<ProjectEntity> {
-    const updateProject = await this.projectRepository.addTeamToProject(
-      projectId,
-      teamIds
-    );
-
-    if (!updateProject) {
-      throw new NotFoundError('Project not found');
-    }
-
-    return updateProject;
-  }
-
-  async removeTeamFromProject(
-    projectId: string,
-    teamId: string
-  ): Promise<ProjectEntity> {
-    const updateProject = await this.projectRepository.removeTeamFromProject(
-      projectId,
-      teamId
-    );
-
-    if (!updateProject) {
-      throw new NotFoundError('Project not found');
-    }
-
-    return updateProject;
-  }
-
   async getProjectDetails(projectId: string): Promise<ProjectEntity> {
     const project = await this.projectRepository.findProjectById(projectId);
 
@@ -176,5 +151,82 @@ export class ProjectUseCase {
     }
 
     return project;
+  }
+
+  async getProjectMembers(projectId: string) {
+    const project = await this.projectRepository.findProjectById(projectId);
+
+    if (!project) {
+      throw new NotFoundError('Project not found');
+    }
+
+    return {
+      project: project,
+      member: []
+    };
+  }
+
+  async acceptProjectInvite(
+    token: string,
+    userId: string
+  ): Promise<ProjectMemberEntity> {
+    const project = await this.projectRepository.findProjectByToken(token);
+
+    if (!project) {
+      throw new NotFoundError('Project not found');
+    }
+
+    const isExistingMember =
+      await this.projectMemberRepository.findByProjectIdAndUserId(
+        project._id as string,
+        userId
+      );
+
+    if (isExistingMember) {
+      return isExistingMember;
+    }
+
+    const member = this.projectMemberRepository.create({
+      userId: userId as unknown as mongoose.Types.ObjectId,
+      projectId: project._id as unknown as mongoose.Types.ObjectId
+    });
+
+    if (!member) {
+      throw new BadRequestError('Failed to accept project invite');
+    }
+
+    return member;
+  }
+
+  async sendProjectInvite(
+    projectId: string,
+    emails: string[],
+    userName: string
+  ) {
+    const project = await this.projectRepository.findProjectById(projectId);
+
+    if (!project) {
+      throw new NotFoundError('Project not found');
+    }
+
+    const INVITE_URL = `${config.APP_ORIGIN}/project/invite/${project.inviteToken}`;
+
+    await Promise.all(
+      emails.map((email) =>
+        this.emailService.sendEmail({
+          to: email,
+          ...projectInvitationTemplate(
+            INVITE_URL,
+            project.name,
+            userName,
+            ProjectMemberRoleEnum.VIEWER
+          )
+        })
+      )
+    );
+
+    return {
+      message: `Invitations sent to ${emails.length} recipients`
+    };
   }
 }
