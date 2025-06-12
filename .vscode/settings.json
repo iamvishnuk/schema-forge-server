@@ -1,7 +1,14 @@
 {
+  "editor.wordWrap": "bounded",
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always"
+  },
   "cSpell.words": [
     "atleast",
     "atmost",
+    "ECOMMERCE",
     "healthcheck",
     "HTTPSTATUS",
     "Keyspace",

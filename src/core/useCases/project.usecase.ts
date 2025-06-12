@@ -1,5 +1,5 @@
 import mongoose, { Types } from 'mongoose';
-import { ProjectEntity } from '../entities/project.entity';
+import { ProjectEntity, ProjectTemplateEnum } from '../entities/project.entity';
 import { ProjectInterface } from '../interfaces/project.interface';
 import {
   BadRequestError,
@@ -17,6 +17,7 @@ import {
 import { IEmailService } from '../../infrastructure/services/email/interface/IEmailService';
 import { projectInvitationTemplate } from '../../infrastructure/services/email/templates/template';
 import { config } from '../../config/env';
+import { ITemplateService } from '../../infrastructure/services/template/interface/ITemplateService';
 
 export class ProjectUseCase {
   constructor(
@@ -24,7 +25,8 @@ export class ProjectUseCase {
     private s3Service: IS3Service,
     private designRepository: DesignInterface,
     private projectMemberRepository: ProjectMemberInterface,
-    private emailService: IEmailService
+    private emailService: IEmailService,
+    private templateService?: ITemplateService
   ) {}
 
   async createProject(
@@ -37,13 +39,37 @@ export class ProjectUseCase {
       databaseType: data.databaseType,
       tag: data.tag,
       connectionString: data.connectionString,
+      templateType: data.templateType || ProjectTemplateEnum.NONE,
       createdBy: new Types.ObjectId(userId)
     };
     const newProject = await this.projectRepository.create(projectData);
 
     const projectId = newProject._id as string;
 
-    const uploadRes = await this.s3Service.createEmptyProjectDesign(projectId);
+    // Get the appropriate design template or use empty design
+    let designTemplate: Record<string, unknown> = { Nodes: [], Edges: [] };
+
+    // If template is specified and template service exists, get template design
+    if (
+      this.templateService &&
+      projectData.templateType &&
+      projectData.templateType !== ProjectTemplateEnum.NONE
+    ) {
+      try {
+        designTemplate = await this.templateService.getTemplateDesign(
+          projectData.templateType
+        );
+      } catch {
+        // If template retrieval fails, fall back to empty design
+        designTemplate = { Nodes: [], Edges: [] };
+      }
+    }
+
+    // Upload the template or empty design to S3
+    const uploadRes = await this.s3Service.updateProjectDesign(
+      designTemplate,
+      `design/${projectId}/${projectId}-design.json`
+    );
 
     const designData: Partial<DesignEntity> = {
       projectId: newProject._id as mongoose.Types.ObjectId,
@@ -56,18 +82,8 @@ export class ProjectUseCase {
     return newProject;
   }
 
-  async getProjects(userId: string): Promise<ProjectEntity[]> {
-    const [userOwnedProject, userAccessibleProject] = await Promise.all([
-      this.projectRepository.getProjects(userId),
-      this.projectMemberRepository.getProjectByUserId(userId)
-    ]);
-
-    const allProject = [
-      ...userOwnedProject,
-      ...userAccessibleProject.map((project) => project.projectId)
-    ];
-
-    return allProject as ProjectEntity[];
+  async getProjects(userId: string) {
+    return this.projectMemberRepository.getAllUserProjects(userId);
   }
 
   async updateProject(
@@ -153,8 +169,18 @@ export class ProjectUseCase {
     return project;
   }
 
-  async getProjectMembers(projectId: string) {
+  async getProjectMembers(projectId: string, userId: string) {
     const project = await this.projectRepository.findProjectById(projectId);
+    const members =
+      await this.projectMemberRepository.getAllProjectMembers(projectId);
+
+    const isMember = members.some(
+      (member) => member.userId._id.toString() === userId.toString()
+    );
+
+    if (!isMember) {
+      throw new ForbiddenError('You are not a member of this project');
+    }
 
     if (!project) {
       throw new NotFoundError('Project not found');
@@ -162,7 +188,7 @@ export class ProjectUseCase {
 
     return {
       project: project,
-      member: []
+      members: members
     };
   }
 
@@ -227,6 +253,61 @@ export class ProjectUseCase {
 
     return {
       message: `Invitations sent to ${emails.length} recipients`
+    };
+  }
+
+  async changeProjectMemberRole(
+    id: string,
+    role: string
+  ): Promise<ProjectMemberEntity> {
+    const projectMember = await this.projectMemberRepository.changeRole(
+      id,
+      role
+    );
+
+    if (!projectMember) {
+      throw new NotFoundError('Project member not found');
+    }
+
+    return projectMember;
+  }
+
+  async removeOrLeaveProject(
+    id: string,
+    userId: string
+  ): Promise<{ message: string; isSelf: boolean }> {
+    const projectMember =
+      await this.projectMemberRepository.getProjectMemberById(id);
+
+    if (!projectMember) {
+      throw new NotFoundError(
+        'You are not a member of this project or cannot remove the user'
+      );
+    }
+
+    const isOwner = projectMember.role === ProjectMemberRoleEnum.OWNER;
+    if (isOwner) {
+      throw new ForbiddenError('You cannot remove the owner of the project');
+    }
+
+    const isSelf = projectMember.userId.toString() === userId.toString();
+
+    const deletedMember =
+      await this.projectMemberRepository.deleteProjectMemberById(id);
+
+    if (!deletedMember) {
+      throw new NotFoundError(
+        isSelf
+          ? 'Failed to leave the project'
+          : 'Failed to remove the user from the project'
+      );
+    }
+
+    return {
+      message: isSelf
+        ? 'You have successfully left the project'
+        : 'User has been removed from the project',
+      isSelf
     };
   }
 }
