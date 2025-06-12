@@ -8,6 +8,7 @@ import { S3Service } from '../../infrastructure/services/s3/services/S3Service';
 import { DesignRepositoryImpl } from '../../infrastructure/repositories/design.repository';
 import { ProjectMemberRepositoryImpl } from '../../infrastructure/repositories/project-member.repository';
 import { NodemailerService } from '../../infrastructure/services/email/services/NodemailerService';
+import { TemplateService } from '../../infrastructure/services/template/services/TemplateService';
 
 export class ProjectController {
   private projectRepository: ProjectRepositoryImpl;
@@ -16,6 +17,7 @@ export class ProjectController {
   private s3Service: S3Service;
   private projectMemberRepository: ProjectMemberRepositoryImpl;
   private emailService: NodemailerService;
+  private templateService: TemplateService;
 
   constructor() {
     this.projectRepository = new ProjectRepositoryImpl();
@@ -23,12 +25,15 @@ export class ProjectController {
     this.s3Service = new S3Service();
     this.projectMemberRepository = new ProjectMemberRepositoryImpl();
     this.emailService = new NodemailerService();
+    this.templateService = new TemplateService();
+
     this.projectUseCase = new ProjectUseCase(
       this.projectRepository,
       this.s3Service,
       this.designRepository,
       this.projectMemberRepository,
-      this.emailService
+      this.emailService,
+      this.templateService
     );
   }
 
@@ -126,15 +131,18 @@ export class ProjectController {
   public getProjectMembers = asyncHandler(
     async (req: Request, res: Response) => {
       const projectId = req.params.id;
+      const userId = req?.user?._id as string;
 
-      const { project, member } =
-        await this.projectUseCase.getProjectMembers(projectId);
+      const { project, members } = await this.projectUseCase.getProjectMembers(
+        projectId,
+        userId
+      );
 
       ResponseHandler.success(
         res,
         {
           project,
-          member
+          members
         },
         HTTPSTATUS.OK,
         'Project members retrieved successfully'
@@ -161,6 +169,19 @@ export class ProjectController {
     }
   );
 
+  public getAvailableTemplates = asyncHandler(
+    async (req: Request, res: Response) => {
+      const templates = await this.templateService.getAvailableTemplates();
+
+      ResponseHandler.success(
+        res,
+        templates,
+        HTTPSTATUS.OK,
+        'Available templates retrieved successfully'
+      );
+    }
+  );
+
   public sendProjectInvitation = asyncHandler(
     async (req: Request, res: Response) => {
       const emails = req.body.emails;
@@ -174,6 +195,35 @@ export class ProjectController {
       );
 
       ResponseHandler.success(res, {}, HTTPSTATUS.OK, message);
+    }
+  );
+
+  public changeProjectMemberRole = asyncHandler(
+    async (req: Request, res: Response) => {
+      const { id, role } = req.body;
+      const teamMember = await this.projectMemberRepository.changeRole(
+        id,
+        role
+      );
+
+      ResponseHandler.success(
+        res,
+        teamMember,
+        HTTPSTATUS.OK,
+        'Project member role changed successfully'
+      );
+    }
+  );
+
+  public removeOrLeaveProjectMember = asyncHandler(
+    async (req: Request, res: Response) => {
+      const { id } = req.params;
+      const userId = req?.user?._id as string;
+
+      const { isSelf, message } =
+        await this.projectUseCase.removeOrLeaveProject(id, userId);
+
+      ResponseHandler.success(res, { isSelf }, HTTPSTATUS.OK, message);
     }
   );
 }
