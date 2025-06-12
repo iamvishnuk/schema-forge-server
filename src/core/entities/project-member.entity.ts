@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 export enum ProjectMemberRoleEnum {
+  OWNER = 'owner',
   EDITOR = 'editor',
   VIEWER = 'viewer'
 }

@@ -1,6 +1,10 @@
 /* eslint-disable no-useless-escape */
 import { z } from 'zod';
-import { ProjectDataBaseTypeEnum } from '../../core/entities/project.entity';
+import {
+  ProjectDataBaseTypeEnum,
+  ProjectTemplateEnum
+} from '../../core/entities/project.entity';
+import { ProjectMemberRoleEnum } from '../../core/entities/project-member.entity';
 
 export const CreateProjectSchema = z
   .object({
@@ -17,7 +21,13 @@ export const CreateProjectSchema = z
       .max(5, { message: 'Maximum 5 tags allowed' })
       .optional()
       .default([]),
-    connectionString: z.string().optional()
+    connectionString: z.string().optional(),
+    templateType: z
+      .nativeEnum(ProjectTemplateEnum, {
+        message: 'Invalid template type'
+      })
+      .optional()
+      .default(ProjectTemplateEnum.NONE)
   })
   .refine(
     (data) => {
@@ -71,4 +81,13 @@ export const ProjectInviteSchema = z.object({
   projectId: z
     .string({ required_error: 'Project ID is required' })
     .min(1, { message: 'Project ID is required' })
+});
+
+export const ChangeProjectMemberRoleSchema = z.object({
+  id: z
+    .string({ required_error: 'Member ID is required' })
+    .min(1, { message: 'Member ID is required' }),
+  role: z.nativeEnum(ProjectMemberRoleEnum, {
+    required_error: 'Role is required'
+  })
 });
