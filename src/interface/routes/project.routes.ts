@@ -6,6 +6,7 @@ import {
 } from '../middlewares/requestValidator.middleware';
 import {
   AcceptProjectInviteSchema,
+  ChangeProjectMemberRoleSchema,
   CreateProjectSchema,
   ProjectInviteSchema
 } from '../validators/project.validator';
@@ -15,6 +16,7 @@ const projectRoutes = Router();
 const projectController = new ProjectController();
 
 projectRoutes.get('/', projectController.getProjects);
+projectRoutes.get('/templates', projectController.getAvailableTemplates);
 projectRoutes.get(
   '/:id',
   validateParams(IdParamsSchema),
@@ -53,10 +55,22 @@ projectRoutes.put(
   projectController.updateProject
 );
 
+projectRoutes.put(
+  '/member/change-role',
+  validateRequest(ChangeProjectMemberRoleSchema),
+  projectController.changeProjectMemberRole
+);
+
 projectRoutes.delete(
   '/delete/:id',
   validateParams(IdParamsSchema),
   projectController.deleteProject
+);
+
+projectRoutes.delete(
+  '/member/remove/:id',
+  validateParams(IdParamsSchema),
+  projectController.removeOrLeaveProjectMember
 );
 
 export default projectRoutes;

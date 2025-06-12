@@ -8,4 +8,8 @@ export interface ProjectMemberInterface {
     userId: string
   ): Promise<ProjectMemberEntity | null>;
   getProjectByUserId(userId: string): Promise<ProjectMemberEntity[]>;
+  getAllUserProjects(userId: string): Promise<ProjectMemberEntity[]>;
+  changeRole(id: string, role: string): Promise<ProjectMemberEntity | null>;
+  getProjectMemberById(id: string): Promise<ProjectMemberEntity | null>;
+  deleteProjectMemberById(id: string): Promise<ProjectMemberEntity | null>;
 }

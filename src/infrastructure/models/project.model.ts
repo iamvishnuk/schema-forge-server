@@ -1,7 +1,8 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import {
   ProjectDataBaseTypeEnum,
-  ProjectEntity
+  ProjectEntity,
+  ProjectTemplateEnum
 } from '../../core/entities/project.entity';
 import { generateUniqueCode } from '../../utils/uuid';
 
@@ -29,6 +30,11 @@ const ProjectSchema = new Schema<ProductDocument>(
       required: true,
       unique: true,
       default: generateUniqueCode
+    },
+    templateType: {
+      type: String,
+      enum: ProjectTemplateEnum,
+      default: ProjectTemplateEnum.NONE
     }
   },
   { timestamps: true, versionKey: false }
