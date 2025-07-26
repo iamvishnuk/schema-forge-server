@@ -9,6 +9,7 @@ import { DesignRepositoryImpl } from '../../infrastructure/repositories/design.r
 import { ProjectMemberRepositoryImpl } from '../../infrastructure/repositories/project-member.repository';
 import { NodemailerService } from '../../infrastructure/services/email/services/NodemailerService';
 import { TemplateService } from '../../infrastructure/services/template/services/TemplateService';
+import { TOrm } from '../../definitions/type';
 
 export class ProjectController {
   private projectRepository: ProjectRepositoryImpl;
@@ -226,4 +227,55 @@ export class ProjectController {
       ResponseHandler.success(res, { isSelf }, HTTPSTATUS.OK, message);
     }
   );
+
+  public getProjectTableOrCollections = asyncHandler(
+    async (req: Request, res: Response) => {
+      const { id } = req.params;
+
+      const collection =
+        await this.projectUseCase.getProjectTablesOrCollections(id);
+
+      ResponseHandler.success(
+        res,
+        collection,
+        HTTPSTATUS.OK,
+        'Project tables or collections retrieved successfully'
+      );
+    }
+  );
+
+  public getSelectedCollectionOrTable = asyncHandler(
+    async (req: Request, res: Response) => {
+      const { projectId, nodeId } = req.params;
+
+      const collectionOrTable =
+        await this.projectUseCase.getSelectedTableOrCollection(
+          projectId,
+          nodeId
+        );
+
+      ResponseHandler.success(
+        res,
+        collectionOrTable,
+        HTTPSTATUS.OK,
+        'Selected collection or table retrieved successfully'
+      );
+    }
+  );
+
+  public generateCode = asyncHandler(async (req: Request, res: Response) => {
+    const { projectId, nodeId, ormType } = req.params;
+    const data = await this.projectUseCase.generateCode(
+      nodeId,
+      ormType as TOrm,
+      projectId
+    );
+
+    ResponseHandler.success(
+      res,
+      data,
+      HTTPSTATUS.OK,
+      'Code generated successfully'
+    );
+  });
 }
