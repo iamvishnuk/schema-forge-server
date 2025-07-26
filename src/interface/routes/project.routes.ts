@@ -8,6 +8,8 @@ import {
   AcceptProjectInviteSchema,
   ChangeProjectMemberRoleSchema,
   CreateProjectSchema,
+  GenerateCodeParamsSchema,
+  GetSelectNodeParamsSchema,
   ProjectInviteSchema
 } from '../validators/project.validator';
 import { IdParamsSchema } from '../validators/team.validator';
@@ -31,6 +33,21 @@ projectRoutes.get(
   '/members/:id',
   validateParams(IdParamsSchema),
   projectController.getProjectMembers
+);
+projectRoutes.get(
+  '/collections-or-tables/:id',
+  validateParams(IdParamsSchema),
+  projectController.getProjectTableOrCollections
+);
+projectRoutes.get(
+  '/selected-collection-or-table/:projectId/:nodeId',
+  validateParams(GetSelectNodeParamsSchema),
+  projectController.getSelectedCollectionOrTable
+);
+projectRoutes.get(
+  '/generate-code/:projectId/:nodeId/:ormType',
+  validateParams(GenerateCodeParamsSchema),
+  projectController.generateCode
 );
 
 projectRoutes.post(

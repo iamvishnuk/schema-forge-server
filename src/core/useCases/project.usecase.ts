@@ -18,6 +18,10 @@ import { IEmailService } from '../../infrastructure/services/email/interface/IEm
 import { projectInvitationTemplate } from '../../infrastructure/services/email/templates/template';
 import { config } from '../../config/env';
 import { ITemplateService } from '../../infrastructure/services/template/interface/ITemplateService';
+import { IEdge, INode } from '../../definitions/interface';
+import { generateMongooseCode } from '../../utils/code/mongoose';
+import { TOrm } from '../../definitions/type';
+import { generatePrismaCodeForMongoDB } from '../../utils/code/prisma';
 
 export class ProjectUseCase {
   constructor(
@@ -309,5 +313,81 @@ export class ProjectUseCase {
         : 'User has been removed from the project',
       isSelf
     };
+  }
+
+  async getProjectTablesOrCollections(projectId: string) {
+    const project = await this.projectRepository.findProjectById(projectId);
+
+    if (!project) {
+      throw new NotFoundError('Project not found');
+    }
+
+    const filePath = `design/${projectId}/${projectId}-design.json`;
+
+    const file = (await this.s3Service.getProjectDesign(filePath)) as {
+      Nodes: INode[];
+      Edges: IEdge[];
+    };
+
+    const collection = file.Nodes.map((node) => {
+      return {
+        id: node.id,
+        label: node.data.label
+      };
+    });
+
+    return collection;
+  }
+
+  async getSelectedTableOrCollection(projectId: string, nodeId: string) {
+    const project = await this.projectRepository.findProjectById(projectId);
+
+    if (!project) {
+      throw new NotFoundError('Project not found');
+    }
+
+    const filePath = `design/${projectId}/${projectId}-design.json`;
+
+    const file = (await this.s3Service.getProjectDesign(filePath)) as {
+      Nodes: INode[];
+      Edges: IEdge[];
+    };
+
+    const selectedNode = file.Nodes.find((node) => node.id === nodeId);
+
+    return selectedNode || null;
+  }
+
+  async generateCode(nodeId: string, ormType: TOrm, projectId: string) {
+    const project = await this.projectRepository.findProjectById(projectId);
+
+    if (!project) {
+      throw new NotFoundError('Project Not found');
+    }
+
+    const filePath = `design/${projectId}/${projectId}-design.json`;
+
+    const file = (await this.s3Service.getProjectDesign(filePath)) as {
+      Nodes: INode[];
+      Edges: IEdge[];
+    };
+
+    const selectedNode = file.Nodes.find((node) => node.id === nodeId);
+
+    if (!selectedNode) {
+      throw new NotFoundError('Selected Node not found');
+    }
+
+    let generatedCode;
+
+    if (ormType === 'mongoose') {
+      generatedCode = generateMongooseCode(selectedNode);
+    } else if (ormType === 'prisma') {
+      generatedCode = generatePrismaCodeForMongoDB(selectedNode);
+    } else {
+      generatedCode = '';
+    }
+
+    return generatedCode;
   }
 }
