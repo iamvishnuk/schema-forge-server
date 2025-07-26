@@ -91,3 +91,24 @@ export const ChangeProjectMemberRoleSchema = z.object({
     required_error: 'Role is required'
   })
 });
+
+export const GetSelectNodeParamsSchema = z.object({
+  projectId: z
+    .string({ required_error: 'Project Id is required' })
+    .min(1, { message: 'Project Id is required' }),
+  nodeId: z
+    .string({ required_error: 'Node Id is required' })
+    .min(1, { message: 'Node Id is required' })
+});
+
+export const GenerateCodeParamsSchema = z.object({
+  projectId: z
+    .string({ required_error: 'Project id is required' })
+    .min(1, { message: 'Project id is required' }),
+  nodeId: z
+    .string({ required_error: 'Node id is required' })
+    .min(1, { message: 'Node id is required' }),
+  ormType: z
+    .string({ required_error: 'ORM type is required' })
+    .min(1, { message: 'ORM Type is required' })
+});

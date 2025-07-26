@@ -6,4 +6,4 @@
 - [x] Role checking and permission
 - [x] Create Project
 - [x] Update Project
-- [] Delete Project (owner can only delete project)
+- [x] Delete Project (owner can only delete project)
