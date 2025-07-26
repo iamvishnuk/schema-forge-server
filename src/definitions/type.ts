@@ -31,3 +31,5 @@ export type EdgeMarker = {
   orient?: string;
   strokeWidth?: number;
 };
+
+export type TOrm = 'prisma' | 'mongoose';
