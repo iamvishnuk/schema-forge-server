@@ -13,6 +13,7 @@ export type TField = {
   required?: boolean;
   isUnique?: boolean;
   index?: boolean;
+  ref?: string;
 };
 
 export type EdgeType =

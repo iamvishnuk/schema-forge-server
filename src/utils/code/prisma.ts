@@ -9,6 +9,18 @@ export const generatePrismaCodeForMongoDB = (node: INode) => {
     ...(node.data?.fields.filter((f) => f.name !== '_id').map((f) => f.name) ||
       [])
   ];
+
+  // Add relation field names for padding calculation
+  const relationFields =
+    node.data?.fields.filter((f) => f.ref && f.name !== '_id') || [];
+  relationFields.forEach((field) => {
+    // Add relation field name (without 'Id' suffix if present)
+    const relationFieldName = field.name.endsWith('Id')
+      ? field.name.slice(0, -2)
+      : `${field.name}Ref`;
+    allFieldNames.push(relationFieldName);
+  });
+
   const maxFieldNameLength = Math.max(
     ...allFieldNames.map((name) => name.length)
   );
@@ -23,6 +35,12 @@ export const generatePrismaCodeForMongoDB = (node: INode) => {
         return f.required ? type : `${type}?`;
       }) || [])
   ];
+
+  // Add relation types for padding calculation
+  relationFields.forEach((field) => {
+    allTypes.push(field.ref || 'Model');
+  });
+
   const maxTypeLength = Math.max(...allTypes.map((type) => type.length));
 
   // Add default id field for MongoDB
@@ -61,6 +79,18 @@ export const generatePrismaCodeForMongoDB = (node: INode) => {
     code += fieldAttributes + '\n';
   });
 
+  // Add relation fields
+  relationFields.forEach((field) => {
+    const relationFieldName = field.name.endsWith('Id')
+      ? field.name.slice(0, -2)
+      : `${field.name}Ref`;
+
+    const paddedRelationName = relationFieldName.padEnd(maxFieldNameLength);
+    const paddedRelationType = (field.ref || 'Model').padEnd(maxTypeLength);
+
+    code += `  ${paddedRelationName} ${paddedRelationType} @relation(fields: [${field.name}], references: [id])\n`;
+  });
+
   // Add spacing before indexes
   const indexedFields = node.data?.fields.filter(
     (field) => field.index && field.name !== '_id'
@@ -75,7 +105,6 @@ export const generatePrismaCodeForMongoDB = (node: INode) => {
   code += '}';
   return code;
 };
-
 export const generatePrismaCodeForRelational = (node: INode) => {
   let code = `model ${node.data.label} {\n`;
 

@@ -736,6 +736,35 @@ export class ProjectSocketEventHandler implements ISocketEventHandler {
       } else {
         diagram.Edges = [edge];
       }
+
+      // if sourceHanle is there add update the reference propert of the schema
+      if (edge.sourceHandle) {
+        const sourceHandle = edge.sourceHandle.split('-')[0];
+
+        const nodes = diagram.Nodes as INode[];
+        const targeNodeLabel = nodes.find((value) => value?.id === edge.target)
+          ?.data?.label;
+
+        const updatedNodes = nodes?.map((node) => {
+          if (node.id === edge.source) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                fields: node.data.fields.map((field) => {
+                  if (field.name === sourceHandle) {
+                    return { ...field, ref: targeNodeLabel };
+                  }
+                  return field;
+                })
+              }
+            };
+          }
+          return node;
+        });
+        diagram.Nodes = updatedNodes;
+      }
+
       await this.redisService.set(redisCacheKey, diagram, 3600);
     }
 
@@ -761,6 +790,35 @@ export class ProjectSocketEventHandler implements ISocketEventHandler {
     if (diagram?.Edges) {
       const edges = diagram.Edges as IEdge[];
       const updatedEdges = edges.filter((edge) => edge.id !== edgeId);
+
+      const deleteEdge = edges.find((e) => e.id == edgeId);
+
+      // if the reference is there is there after delete the edge then delete the reference too
+      if (deleteEdge?.sourceHandle) {
+        const source = deleteEdge?.source;
+        const sourceHandle = deleteEdge?.sourceHandle.split('-')[0];
+
+        const nodes = diagram.Nodes as INode[];
+        const updatedNodes = nodes?.map((node) => {
+          if (node.id === source) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                fields: node.data.fields.map((field) => {
+                  if (field.name === sourceHandle) {
+                    return { ...field, ref: '' };
+                  }
+                  return field;
+                })
+              }
+            };
+          }
+          return node;
+        });
+        diagram.Nodes = updatedNodes;
+      }
+
       diagram.Edges = updatedEdges;
       await this.redisService.set(redisCacheKey, diagram, 3600);
     }
