@@ -14,6 +14,7 @@ export const generateMongooseCode = (node: INode) => {
     if (element.required) code += `       required: true, \n`;
     if (element.isUnique) code += `       unique: true, \n`;
     if (element.index) code += `       index: true, \n`;
+    if (element.ref) code += `       ref: '${element.ref}' \n`;
 
     code += '   },\n';
   });
