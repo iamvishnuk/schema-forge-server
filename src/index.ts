@@ -14,6 +14,7 @@ import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
 import { SocketServer } from './infrastructure/sockets';
 import http from 'http';
+import { securityValidationMiddleware } from './interface/middlewares/securityValidation.middleware';
 
 const app = express();
 const server = http.createServer(app);
@@ -31,6 +32,8 @@ app.use(
 app.use(cookieParser());
 app.use(passport.initialize());
 app.use(helmet());
+
+app.use(securityValidationMiddleware);
 
 // Setup request logging
 const morganFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
@@ -61,5 +64,10 @@ server.listen(config.PORT, async () => {
     `Server is running on port http://localhost:${config.PORT}${config.BASE_PATH} on ${config.NODE_ENV} mode`
   );
   logger.info(`Swagger is running on http://localhost:${config.PORT}/api-docs`);
-  await connectDB();
+  // Only connect to DB when not in test environment
+  if (process.env.NODE_ENV !== 'test') {
+    await connectDB();
+  }
 });
+
+export default app;

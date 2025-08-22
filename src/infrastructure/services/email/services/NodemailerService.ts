@@ -9,13 +9,17 @@ export class NodemailerService implements IEmailService {
   constructor() {
     const smtpConfig = {
       host: config.SMTP_HOST,
-      service: 'Gmail',
       port: parseInt(config.SMTP_PORT || '587'),
       secure: config.SMTP_SECURE === 'true',
-      auth: {
-        user: config.SMTP_USER,
-        pass: config.SMTP_PASS
-      }
+      ...(process.env.NODE_ENV === 'test'
+        ? {}
+        : {
+            service: 'Gmail',
+            auth: {
+              user: config.SMTP_USER,
+              pass: config.SMTP_PASS
+            }
+          })
     };
 
     this.transporter = nodemailer.createTransport(

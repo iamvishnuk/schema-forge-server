@@ -6,7 +6,8 @@ import { AppError } from '../../utils/appError';
 export const validateRequest = <T extends z.ZodTypeAny>(schema: T) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
-      schema.parse(req.body);
+      const validatedData = schema.parse(req.body);
+      req.body = validatedData; // Assign the transformed data back to req.body
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -24,7 +25,8 @@ export const validateRequest = <T extends z.ZodTypeAny>(schema: T) => {
 export const validateParams = <T extends z.ZodTypeAny>(schema: T) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
-      schema.parse(req.params);
+      const validatedData = schema.parse(req.params);
+      req.params = validatedData; // Assign the transformed data back to req.params
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -42,7 +44,8 @@ export const validateParams = <T extends z.ZodTypeAny>(schema: T) => {
 export const validateQuery = <T extends z.ZodTypeAny>(schema: T) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
-      schema.parse(req.query);
+      const validatedData = schema.parse(req.query);
+      req.query = validatedData; // Assign the transformed data back to req.query
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
