@@ -12,4 +12,7 @@ export interface VerificationRepository {
     verification: Pick<VerificationCodeEntity, 'userId' | 'type'>,
     createdAtQuery?: { $gt?: Date; $lt?: Date }
   ): Promise<number>;
+  findVerificationCodeByCode(
+    code: string
+  ): Promise<VerificationCodeEntity | null>;
 }

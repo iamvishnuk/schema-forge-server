@@ -3,6 +3,12 @@ import logger from '../../utils/logger';
 
 export const connectDB = async (): Promise<void> => {
   try {
+    // Skip connection in test environment as it's handled by test setup
+    if (process.env.NODE_ENV === 'test') {
+      logger.info('Skipping MongoDB connection in test environment');
+      return;
+    }
+
     // set debug to true to log all queries
     if (process.env.NODE_ENV === 'development') {
       mongoose.set('debug', true);

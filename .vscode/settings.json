@@ -6,12 +6,17 @@
     "source.fixAll.eslint": "always"
   },
   "cSpell.words": [
+    "appendonly",
     "atleast",
     "atmost",
     "ECOMMERCE",
+    "FLUSHALL",
+    "FLUSHDB",
     "healthcheck",
     "HTTPSTATUS",
+    "Intergration",
     "Keyspace",
+    "mailhog",
     "nodemon",
     "otpauth",
     "pmessage",

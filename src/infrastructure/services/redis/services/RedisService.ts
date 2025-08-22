@@ -52,7 +52,12 @@ export class RedisService implements IRedisService {
    */
   private setupEventHandlers(): void {
     this.client.on('error', (err) => {
-      logger.error(`Redis error: ${err.message}`);
+      // Don't log Redis errors as errors in test environment
+      if (process.env.NODE_ENV === 'test') {
+        logger.warn(`Redis error in test environment: ${err.message}`);
+      } else {
+        logger.error(`Redis error: ${err.message}`);
+      }
     });
 
     this.client.on('connect', () => {
@@ -60,7 +65,11 @@ export class RedisService implements IRedisService {
     });
 
     this.client.on('reconnecting', () => {
-      logger.info('Redis reconnecting');
+      if (process.env.NODE_ENV === 'test') {
+        logger.warn('Redis reconnecting in test environment');
+      } else {
+        logger.info('Redis reconnecting');
+      }
     });
 
     this.client.on('end', () => {
@@ -69,7 +78,14 @@ export class RedisService implements IRedisService {
 
     // Set up event handlers for subscriber client
     this.subscriber.on('error', (err) => {
-      logger.error(`Redis subscriber error: ${err.message}`);
+      // Don't log Redis subscriber errors as errors in test environment
+      if (process.env.NODE_ENV === 'test') {
+        logger.warn(
+          `Redis subscriber error in test environment: ${err.message}`
+        );
+      } else {
+        logger.error(`Redis subscriber error: ${err.message}`);
+      }
     });
 
     this.subscriber.on('connect', () => {

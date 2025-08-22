@@ -11,7 +11,6 @@ import {
 } from '../../utils/date-time';
 import { VerificationEnum } from '../entities/verificationCode.entity';
 import { config } from '../../config/env';
-import { sendEmail } from '../../infrastructure/services/email/services/emailService';
 import {
   passwordResetTemplate,
   verifyEmailTemplate
@@ -27,7 +26,6 @@ import {
 import {
   BadRequestError,
   ConflictError,
-  InternalServerError,
   NotFoundError,
   TooManyRequests,
   UnauthorizedError
@@ -117,6 +115,11 @@ export class AuthUseCase {
     const isPasswordMatch = await user.comparePassword(data.password);
     if (!isPasswordMatch) {
       throw new BadRequestError('Invalid email or password');
+    }
+
+    // check if the user email is verified
+    if (!user.isEmailVerified) {
+      throw new BadRequestError('Email not verified');
     }
 
     // If user has 2FA enabled, return early without tokens
@@ -311,20 +314,15 @@ export class AuthUseCase {
     const resetPasswordUrl = `${config.APP_ORIGIN}/reset-password?code=${verificationCode.code}&exp=${expiresAt.getTime()}`;
 
     // Send the password reset email to the user
-    const { data, error } = await sendEmail({
+    await this.emailService.sendEmail({
       to: user.email,
       ...passwordResetTemplate(resetPasswordUrl)
     });
 
-    // Handle email sending errors
-    if (!data?.id) {
-      throw new InternalServerError(`${error?.name} ${error?.message}`);
-    }
-
     // Return the reset URL and email tracking ID
     return {
       url: resetPasswordUrl,
-      emailId: data.id
+      emailId: user.email
     };
   }
 
