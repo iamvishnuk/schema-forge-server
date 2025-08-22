@@ -67,7 +67,7 @@ export const errorHandler = (
 
   if (config.NODE_ENV === 'development') {
     sendErrorDev(err, res);
-  } else if (config.NODE_ENV === 'production') {
+  } else if (config.NODE_ENV === 'production' || config.NODE_ENV === 'test') {
     sendErrorProd(err, res);
   }
 

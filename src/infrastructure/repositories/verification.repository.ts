@@ -33,4 +33,10 @@ export class VerificationCodeImpl implements VerificationRepository {
   deleteVerificationCode(code: string): Promise<VerificationCodeEntity | null> {
     return VerificationCodeModel.findOneAndDelete({ code });
   }
+
+  findVerificationCodeByCode(
+    code: string
+  ): Promise<VerificationCodeEntity | null> {
+    return VerificationCodeModel.findOne({ code });
+  }
 }
