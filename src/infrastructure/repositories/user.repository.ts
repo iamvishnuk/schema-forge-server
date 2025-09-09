@@ -24,4 +24,8 @@ export class UserRepositoryImpl implements UserRepository {
   async findById(id: string): Promise<UserEntity | null> {
     return UserModel.findById(id);
   }
+
+  async deleteByEmail(email: string): Promise<UserEntity | null> {
+    return UserModel.findOneAndDelete({ email });
+  }
 }

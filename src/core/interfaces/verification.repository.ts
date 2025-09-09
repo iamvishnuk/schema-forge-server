@@ -1,4 +1,7 @@
-import { VerificationCodeEntity } from '../entities/verificationCode.entity';
+import {
+  VerificationCodeEntity,
+  VerificationEnum
+} from '../entities/verificationCode.entity';
 
 export interface VerificationRepository {
   createVerificationCode(
@@ -15,4 +18,12 @@ export interface VerificationRepository {
   findVerificationCodeByCode(
     code: string
   ): Promise<VerificationCodeEntity | null>;
+  updateVerificationCode(
+    filter: Partial<VerificationCodeEntity>,
+    update: Partial<VerificationCodeEntity>
+  ): Promise<VerificationCodeEntity | null>;
+  deleteVerificationCodesByUserIdAndType(
+    userId: string,
+    type: VerificationEnum
+  ): Promise<{ deletedCount: number } | null>;
 }
