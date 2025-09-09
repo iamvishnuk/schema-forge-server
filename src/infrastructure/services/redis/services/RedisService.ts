@@ -219,6 +219,86 @@ export class RedisService implements IRedisService {
   }
 
   /**
+   * Rate limiter for tracking and limiting requests
+   * @param key The key to track (e.g., user ID or IP address)
+   * @param windowMs Time window in milliseconds
+   * @param maxAttempts Maximum number of attempts allowed in the window
+   * @returns Object with success status and remaining attempts
+   */
+  async rateLimiter(
+    key: string,
+    windowMs: number,
+    maxAttempts: number
+  ): Promise<{ success: boolean; remaining: number; resetTime: number }> {
+    const rateLimitKey = `rate_limit:${key}`;
+    const now = Date.now();
+    const windowStart = now - windowMs;
+
+    try {
+      // Use a Lua script to atomically check and update the rate limit
+      // This ensures race condition safety
+      const luaScript = `
+        local key = KEYS[1]
+        local window_start = tonumber(ARGV[1])
+        local now = tonumber(ARGV[2])
+        local max_attempts = tonumber(ARGV[3])
+        local window_ms = tonumber(ARGV[4])
+
+        -- Remove old entries outside the window
+        redis.call('ZREMRANGEBYSCORE', key, '-inf', window_start)
+
+        -- Get current count
+        local current_count = redis.call('ZCARD', key)
+
+        -- Calculate reset time (end of current window)
+        local reset_time = now + window_ms
+
+        if current_count < max_attempts then
+          -- Add current request
+          redis.call('ZADD', key, now, now)
+          -- Set expiration for the key
+          redis.call('EXPIRE', key, math.ceil(window_ms / 1000))
+          return {1, max_attempts - current_count - 1, reset_time}
+        else
+          return {0, 0, reset_time}
+        end
+      `;
+
+      const result = (await this.client.eval(
+        luaScript,
+        1,
+        rateLimitKey,
+        windowStart.toString(),
+        now.toString(),
+        maxAttempts.toString(),
+        windowMs.toString()
+      )) as number[];
+
+      const success = result[0] === 1;
+      const remaining = result[1];
+      const resetTime = result[2];
+
+      logger.debug(
+        `Rate limiter - Key: ${key}, Success: ${success}, Remaining: ${remaining}, Reset: ${new Date(resetTime).toISOString()}`
+      );
+
+      return {
+        success,
+        remaining,
+        resetTime
+      };
+    } catch (error) {
+      logger.error(`Rate limiter error for key ${key}: ${error}`);
+      // On error, allow the request (fail open)
+      return {
+        success: true,
+        remaining: maxAttempts - 1,
+        resetTime: now + windowMs
+      };
+    }
+  }
+
+  /**
    * Close the Redis connection
    */
   async close(): Promise<void> {

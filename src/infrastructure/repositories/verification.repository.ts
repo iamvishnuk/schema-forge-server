@@ -1,4 +1,7 @@
-import { VerificationCodeEntity } from '../../core/entities/verificationCode.entity';
+import {
+  VerificationCodeEntity,
+  VerificationEnum
+} from '../../core/entities/verificationCode.entity';
 import { VerificationRepository } from '../../core/interfaces/verification.repository';
 import { VerificationCodeModel } from '../models/verificationCode.model';
 
@@ -38,5 +41,21 @@ export class VerificationCodeImpl implements VerificationRepository {
     code: string
   ): Promise<VerificationCodeEntity | null> {
     return VerificationCodeModel.findOne({ code });
+  }
+
+  updateVerificationCode(
+    filter: Partial<VerificationCodeEntity>,
+    update: Partial<VerificationCodeEntity>
+  ): Promise<VerificationCodeEntity | null> {
+    return VerificationCodeModel.findOneAndUpdate(filter, update, {
+      new: true
+    });
+  }
+
+  deleteVerificationCodesByUserIdAndType(
+    userId: string,
+    type: VerificationEnum
+  ): Promise<{ deletedCount: number } | null> {
+    return VerificationCodeModel.deleteMany({ userId, type });
   }
 }

@@ -32,4 +32,17 @@ export interface IRedisService {
    * @returns True if the key exists, false otherwise
    */
   exists(key: string): Promise<boolean>;
+
+  /**
+   * Rate limiter for tracking and limiting requests
+   * @param key The key to track (e.g., user ID or IP address)
+   * @param windowMs Time window in milliseconds
+   * @param maxAttempts Maximum number of attempts allowed in the window
+   * @returns Object with success status and remaining attempts
+   */
+  rateLimiter(
+    key: string,
+    windowMs: number,
+    maxAttempts: number
+  ): Promise<{ success: boolean; remaining: number; resetTime: number }>;
 }

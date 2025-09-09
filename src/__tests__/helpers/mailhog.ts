@@ -70,6 +70,21 @@ export class MailhogClient {
     return codeMatch ? codeMatch[1] : null;
   }
 
+  extractPasswordResetCode(messageBody: string): string | null {
+    // First, decode quoted-printable encoding
+    let decodedBody = messageBody;
+
+    // Decode quoted-printable characters - handle =3D specifically first
+    decodedBody = decodedBody.replace(/=3D/g, '='); // =3D becomes =
+    decodedBody = decodedBody.replace(/=20/g, ' '); // =20 becomes space
+    decodedBody = decodedBody.replace(/=\r?\n/g, ''); // Remove soft line breaks
+
+    // Extract the password reset code - simple alphanumeric pattern
+    const codeMatch = decodedBody.match(/reset-password\?code=([a-zA-Z0-9]+)/);
+
+    return codeMatch ? codeMatch[1] : null;
+  }
+
   async waitForEmail(recipient: string, timeout = 10000): Promise<any> {
     const startTime = Date.now();
     const checkInterval = 200; // Increased from 100ms for more reliable checks

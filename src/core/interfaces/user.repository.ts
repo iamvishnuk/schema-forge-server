@@ -12,4 +12,5 @@ export interface UserRepository {
     user: Partial<UserEntity>
   ): Promise<UserEntity | null>;
   findById(id: string): Promise<UserEntity | null>;
+  deleteByEmail(email: string): Promise<UserEntity | null>;
 }
