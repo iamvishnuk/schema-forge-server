@@ -6,8 +6,7 @@ import {
   anHourFromNow,
   calculateExpirationDate,
   fortyFiveMinutesFromNow,
-  ONE_DAY_IN_MILLISECONDS,
-  threeMinutesAgo
+  ONE_DAY_IN_MILLISECONDS
 } from '../../utils/date-time';
 import { VerificationEnum } from '../entities/verificationCode.entity';
 import { config } from '../../config/env';
@@ -33,13 +32,15 @@ import {
 import { hashValue } from '../../utils/bcrypt';
 import { SessionEntity } from '../entities/session.entity';
 import { IEmailService } from '../../infrastructure/services/email/interface/IEmailService';
+import { IRedisService } from '../interfaces/IRedisService';
 
 export class AuthUseCase {
   constructor(
     private userRepository: UserRepository,
     private verificationCodeRepository: VerificationRepository,
     private sessionRepository: SessionRepository,
-    private emailService: IEmailService
+    private emailService: IEmailService,
+    private redisService: IRedisService
   ) {}
 
   /**
@@ -271,7 +272,8 @@ export class AuthUseCase {
    * @throws InternalServerError if the email fails to send
    */
   public async forgotPassword(
-    email: string
+    email: string,
+    ipAddress: string | undefined
   ): Promise<{ url: string; emailId: string }> {
     // Find the user by email address
     const user = await this.userRepository.findByEmail(email);
@@ -280,24 +282,31 @@ export class AuthUseCase {
       throw new NotFoundError('User not found');
     }
 
-    // Define rate limiting parameters
-    const timeAgo = threeMinutesAgo();
+    // Use Redis-based rate limiting
+    const rateLimitKey = `forgot_password:${user._id}:${ipAddress || 'unknown'}`;
+    const windowMs = 3 * 60 * 1000; // 3 minutes
     const maxAttempts = 2;
 
-    // Check if user has made too many reset attempts recently
-    const verificationAttemptsCount =
-      await this.verificationCodeRepository.countVerificationCodes(
-        {
-          userId: user._id as mongoose.Types.ObjectId,
-          type: VerificationEnum.PASSWORD_RESET
-        },
-        { $gt: timeAgo }
-      );
+    const rateLimitResult = await this.redisService.rateLimiter(
+      rateLimitKey,
+      windowMs,
+      maxAttempts
+    );
 
-    // Enforce rate limiting to prevent abuse
-    if (verificationAttemptsCount >= maxAttempts) {
-      throw new TooManyRequests('Too many attempts. Please try again later');
+    if (!rateLimitResult.success) {
+      const resetTimeMinutes = Math.ceil(
+        (rateLimitResult.resetTime - Date.now()) / (1000 * 60)
+      );
+      throw new TooManyRequests(
+        `Too many password reset attempts. Please try again in ${resetTimeMinutes} minute(s)`
+      );
     }
+
+    // Delete all existing reset password code for the user
+    await this.verificationCodeRepository.deleteVerificationCodesByUserIdAndType(
+      user._id as string,
+      VerificationEnum.PASSWORD_RESET
+    );
 
     // Set expiration time for the verification code
     const expiresAt = anHourFromNow();

@@ -81,8 +81,25 @@ export const emailSchema = z.object({
 export const resetPasswordSchema = z.object({
   password: z
     .string({ required_error: 'Password is required' })
-    .min(6, { message: 'password must have atleast 6 character' })
-    .max(255, { message: 'password must have atmost 255 characters' }),
+    .transform((val) => val.trim())
+    .pipe(
+      z
+        .string()
+        .min(8, { message: 'Password must have at least 8 characters' })
+        .max(255, { message: 'Password must have at most 255 characters' })
+        .refine((password: string) => /[A-Z]/.test(password), {
+          message: 'Password must contain at least one uppercase letter'
+        })
+        .refine((password: string) => /[a-z]/.test(password), {
+          message: 'Password must contain at least one lowercase letter'
+        })
+        .refine((password: string) => /[0-9]/.test(password), {
+          message: 'Password must contain at least one number'
+        })
+        .refine((password: string) => /[^A-Za-z0-9]/.test(password), {
+          message: 'Password must contain at least one special character'
+        })
+    ),
   code: z
     .string()
     .trim()
