@@ -8,6 +8,8 @@ import { HTTPSTATUS } from '../../config/http.config';
 import { SessionRepositoryImpl } from '../../infrastructure/repositories/session.repository';
 import { NotFoundError, UnauthorizedError } from '../../utils/error';
 import { NodemailerService } from '../../infrastructure/services/email/services/NodemailerService';
+import { RedisService } from '../../infrastructure/services/redis/services/RedisService';
+import { S3Service } from '../../infrastructure/services/s3/services/S3Service';
 
 export class AuthController {
   private userRepository: UserRepositoryImpl;
@@ -15,17 +17,22 @@ export class AuthController {
   private verificationCodeRepository: VerificationCodeImpl;
   private sessionRepository: SessionRepositoryImpl;
   private emailService: NodemailerService;
+  private redisService: RedisService;
+  private s3Service: S3Service;
 
   constructor() {
     this.userRepository = new UserRepositoryImpl();
     this.verificationCodeRepository = new VerificationCodeImpl();
     this.sessionRepository = new SessionRepositoryImpl();
     this.emailService = new NodemailerService();
+    this.s3Service = new S3Service();
+    this.redisService = new RedisService(this.s3Service);
     this.authUseCase = new AuthUseCase(
       this.userRepository,
       this.verificationCodeRepository,
       this.sessionRepository,
-      this.emailService
+      this.emailService,
+      this.redisService
     );
   }
 
@@ -98,7 +105,26 @@ export class AuthController {
 
   public forgotPassword = asyncHandler(async (req: Request, res: Response) => {
     const { email } = req.body;
-    await this.authUseCase.forgotPassword(email);
+
+    // Extract IP address more robustly
+    const forwardedFor = req.headers['x-forwarded-for'];
+    const realIp = req.headers['x-real-ip'];
+
+    let ipAddress: string;
+
+    if (forwardedFor) {
+      // x-forwarded-for can contain multiple IPs, take the first (original client)
+      ipAddress =
+        typeof forwardedFor === 'string'
+          ? forwardedFor.split(',')[0].trim()
+          : forwardedFor[0].trim();
+    } else if (realIp) {
+      ipAddress = typeof realIp === 'string' ? realIp.trim() : realIp[0].trim();
+    } else {
+      ipAddress = req.socket.remoteAddress || 'unknown';
+    }
+
+    await this.authUseCase.forgotPassword(email, ipAddress);
     ResponseHandler.success(
       res,
       {},
