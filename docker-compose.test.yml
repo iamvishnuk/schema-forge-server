@@ -1,0 +1,52 @@
+# Docker Compose for testing environment
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis-test
+    ports:
+      - '6379:6379'
+    networks:
+      - test-network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-test-data:/data
+    restart: unless-stopped
+    environment:
+      - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL # Optional: disable dangerous commands
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog
+    ports:
+      - '1025:1025' # SMTP
+      - '8025:8025' # Web UI
+    networks:
+      - test-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--quiet',
+          '--tries=1',
+          '--spider',
+          'http://localhost:8025'
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+networks:
+  test-network:
+    driver: bridge
+
+volumes:
+  redis-test-data:
+    driver: local

@@ -1,0 +1,148 @@
+import { ProjectMemberRoleEnum } from '../../../../core/entities/project-member.entity';
+
+export const verifyEmailTemplate = (
+  url: string,
+  brandColor: string = '#2563EB'
+) => ({
+  subject: 'Confirm your Schema Forge account',
+  text: `Please verify your email address by clicking the following link: ${url}`,
+  html: `
+    <html><head><style>
+      body, html { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4; color: #333333; }
+      .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1); }
+      .header { background-color: ${brandColor}; font-weight:bold; font-size: 24px; color: #ffffff; padding: 20px; text-align: center; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+      .header img { max-width: 40px; margin-bottom: 10px; }
+      .content { padding: 20px; text-align: center; }
+      .content h1 { font-size: 24px; color: #333333; }
+      .content p { font-size: 16px; color: #666666; margin: 10px 0 20px; }
+      .button { display: inline-block; padding: 15px 25px; font-size: 16px; font-weight: bold;  background-color: ${brandColor}; color: #fff!important; border-radius: 5px; text-decoration: none; margin-top: 20px; }
+      .footer { font-size: 14px; color: #999999; text-align: center; padding: 20px; }
+    </style></head><body>
+      <div class="container">
+        <div class="header">Schema Forge</div>
+        <div class="content">
+          <h1>Confirm Your Email Address</h1>
+          <p>Thank you for signing up! Please confirm your account by clicking the button below.</p>
+          <a href="${url}" class="button">Confirm account</a>
+          <p>If you did not create this account, please disregard this email.</p>
+        </div>
+        <div class="footer">
+          <p>If you have any questions, feel free to reply to this email or contact our support team.</p>
+        </div>
+      </div>
+    </body></html>
+  `
+});
+
+export const passwordResetTemplate = (
+  url: string,
+  brandColor: string = '#2563EB'
+) => ({
+  subject: 'Reset Your Password',
+  text: `To reset your password, please click the following link: ${url}`,
+  html: `
+    <html><head><style>
+      body, html { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4; color: #333333; }
+      .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1); }
+      .header { background-color: ${brandColor}; font-size: 24px;  font-weight:bold; color: #ffffff; padding: 20px; text-align: center; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+      .header img { max-width: 40px; margin-bottom: 10px; }
+      .content { padding: 20px; text-align: center; }
+      .content h1 { font-size: 24px; color: #333333; }
+      .content p { font-size: 16px; color: #666666; margin: 10px 0 20px; }
+      .button { display: inline-block; padding: 15px 25px; font-size: 16px; font-weight: bold; background-color: ${brandColor};  color: #fff !important; border-radius: 5px; text-decoration: none; margin-top: 20px; }
+      .footer { font-size: 14px; color: #999999; text-align: center; padding: 20px; }
+    </style></head><body>
+      <div class="container">
+        <div class="header">Schema Forge</div>
+        <div class="content">
+          <h1>Reset Your Password</h1>
+          <p>We received a request to reset your password. Click the button below to proceed with resetting your password.</p>
+          <a href="${url}" class="button">Reset Password</a>
+          <p>If you did not request a password reset, you can safely ignore this email.</p>
+        </div>
+        <div class="footer">
+          <p>If you have any questions, feel free to reply to this email or contact our support team.</p>
+        </div>
+      </div>
+    </body></html>
+  `
+});
+
+export const teamInvitationTemplate = (
+  url: string,
+  teamName: string,
+  invitedBy: string,
+  brandColor: string = '#2563EB'
+) => ({
+  subject: `You're Invited to Join ${teamName} on Schema Forge`,
+  text: `Hello,\n\n${invitedBy} has invited you to join the team "${teamName}" on Schema Forge. Click the link below to accept the invitation:\n${url}\n\nIf you did not expect this invitation, you can ignore this email.`,
+  html: `
+    <html><head><style>
+      body, html { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4; color: #333333; }
+      .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1); }
+      .header { background-color: ${brandColor}; font-size: 24px; font-weight: bold; color: #ffffff; padding: 20px; text-align: center; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+      .content { padding: 20px; text-align: center; }
+      .content h1 { font-size: 24px; color: #333333; }
+      .content p { font-size: 16px; color: #666666; margin: 10px 0 20px; }
+      .button { display: inline-block; padding: 15px 25px; font-size: 16px; font-weight: bold; background-color: ${brandColor}; color: #fff !important; border-radius: 5px; text-decoration: none; margin-top: 20px; }
+      .footer { font-size: 14px; color: #999999; text-align: center; padding: 20px; }
+    </style></head><body>
+      <div class="container">
+        <div class="header">Schema Forge</div>
+        <div class="content">
+          <h1>You're Invited to Join ${teamName}</h1>
+          <p>${invitedBy} has invited you to join the team "<strong>${teamName}</strong>" on Schema Forge.</p>
+          <a href="${url}" class="button">Accept Invitation</a>
+          <p>If you did not expect this invitation, you can ignore this email.</p>
+        </div>
+        <div class="footer">
+          <p>If you have any questions, feel free to reply to this email or contact our support team.</p>
+        </div>
+      </div>
+    </body></html>
+  `
+});
+
+export const projectInvitationTemplate = (
+  url: string,
+  projectName: string,
+  invitedBy: string,
+  role: ProjectMemberRoleEnum,
+  brandColor: string = '#2563EB'
+) => ({
+  subject: `You're Invited to Join ${projectName} on Schema Forge`,
+  text: `Hello,\n\n${invitedBy} has invited you to join the project "${projectName}" on Schema Forge as a ${role}. Click the link below to accept the invitation:\n${url}\n\nIf you did not expect this invitation, you can ignore this email.`,
+  html: `
+  <html><head><style>
+  body, html { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4; color: #333333; }
+  .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1); }
+  .header { background-color: ${brandColor}; font-size: 24px; font-weight: bold; color: #ffffff; padding: 20px; text-align: center; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+  .content { padding: 20px; text-align: center; }
+  .content h1 { font-size: 24px; color: #333333; }
+  .content p { font-size: 16px; color: #666666; margin: 10px 0 20px; }
+  .project-details { background-color: #f8f9fa; border-radius: 5px; padding: 15px; margin: 20px 0; text-align: left; }
+  .project-details p { margin: 5px 0; }
+  .button { display: inline-block; padding: 15px 25px; font-size: 16px; font-weight: bold; background-color: ${brandColor}; color: #fff !important; border-radius: 5px; text-decoration: none; margin-top: 20px; }
+  .footer { font-size: 14px; color: #999999; text-align: center; padding: 20px; }
+  </style></head><body>
+  <div class="container">
+    <div class="header">Schema Forge</div>
+    <div class="content">
+      <h1>Project Invitation</h1>
+      <p>${invitedBy} has invited you to join a project on Schema Forge</p>
+      
+      <div class="project-details">
+        <p><strong>Project:</strong> ${projectName}</p>
+        <p><strong>Your Role:</strong> ${role}</p>
+      </div>
+      
+      <a href="${url}" class="button">Accept Invitation</a>
+      <p>If you did not expect this invitation, you can ignore this email.</p>
+    </div>
+    <div class="footer">
+      <p>If you have any questions, feel free to reply to this email or contact our support team.</p>
+    </div>
+  </div>
+  </body></html>
+  `
+});
