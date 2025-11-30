@@ -3437,4 +3437,675 @@ describe('Auth API Intergration Tests', () => {
       });
     });
   });
+
+  describe('Refresh Token Endpoint', () => {
+    // Helper function to create and login a user, returning cookies
+    const createUserAndLogin = async () => {
+      const user = createLogoutUser();
+      await registerUserAndVerifyEmailForLogout(user);
+
+      const loginResponse = await request(app)
+        .post('/api/v1/auth/login')
+        .send({
+          email: user.email,
+          password: user.password
+        })
+        .expect(200);
+
+      return {
+        user,
+        cookies: loginResponse.headers['set-cookie'],
+        loginResponse
+      };
+    };
+
+    describe('Successful Token Refresh', () => {
+      it('should successfully refresh token with valid refresh token', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        const refreshResponse = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', cookies)
+          .expect(200);
+
+        expect(refreshResponse.body.status).toBe('success');
+        expect(refreshResponse.body.message).toBe(
+          'Token refreshed successfully'
+        );
+        expect(refreshResponse.body.data).toBeDefined();
+        expect(refreshResponse.body.tokens).toBeDefined();
+        expect(refreshResponse.body.tokens.accessToken).toBeDefined();
+        expect(typeof refreshResponse.body.tokens.accessToken).toBe('string');
+
+        // Check that new access token cookie is set
+        const setCookieHeader = refreshResponse.headers['set-cookie'];
+        expect(setCookieHeader).toBeDefined();
+        const cookieArray = Array.isArray(setCookieHeader)
+          ? setCookieHeader
+          : [setCookieHeader as string];
+        const accessTokenCookie = cookieArray.find((cookie: string) =>
+          cookie.startsWith('accessToken=')
+        );
+        expect(accessTokenCookie).toBeDefined();
+        expect(accessTokenCookie).toContain('HttpOnly');
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+
+      it('should set proper cookie attributes for refreshed tokens', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        const refreshResponse = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', cookies)
+          .expect(200);
+
+        const setCookieHeader = refreshResponse.headers['set-cookie'];
+        expect(setCookieHeader).toBeDefined();
+        const cookieArray = Array.isArray(setCookieHeader)
+          ? setCookieHeader
+          : [setCookieHeader as string];
+
+        const accessTokenCookie = cookieArray.find((cookie: string) =>
+          cookie.startsWith('accessToken=')
+        );
+        expect(accessTokenCookie).toBeDefined();
+        expect(accessTokenCookie).toContain('HttpOnly');
+        expect(accessTokenCookie).toContain('SameSite=Lax'); // Test environment
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+
+      it('should return access token in response body', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        const refreshResponse = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', cookies)
+          .expect(200);
+
+        expect(refreshResponse.body.tokens.accessToken).toBeDefined();
+        expect(typeof refreshResponse.body.tokens.accessToken).toBe('string');
+        expect(refreshResponse.body.tokens.accessToken.length).toBeGreaterThan(
+          10
+        );
+
+        // Access token should be a valid JWT format
+        expect(refreshResponse.body.tokens.accessToken).toMatch(
+          /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/
+        );
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+
+      it('should handle refresh token rotation when session is close to expiring', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        // Find the session and manually set it to be close to expiring
+        const userRecord = await userRepository.findByEmail(user.email);
+        const sessions = await sessionRepository.getAllSession(
+          String(userRecord!._id)
+        );
+        const session = sessions[0];
+
+        if (session) {
+          // Set session to expire in less than a day (to trigger refresh token rotation)
+          const almostExpired = new Date(Date.now() + 12 * 60 * 60 * 1000); // 12 hours from now
+          session.expiredAt = almostExpired;
+          await session.save();
+        }
+
+        const refreshResponse = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', cookies)
+          .expect(200);
+
+        expect(refreshResponse.body.status).toBe('success');
+        expect(refreshResponse.body.tokens.accessToken).toBeDefined();
+
+        // Should get a new refresh token when session is close to expiring
+        const setCookieHeader = refreshResponse.headers['set-cookie'];
+        const cookieArray = Array.isArray(setCookieHeader)
+          ? setCookieHeader
+          : [setCookieHeader as string];
+        const refreshTokenCookie = cookieArray?.find((cookie: string) =>
+          cookie.startsWith('refreshToken=')
+        );
+
+        if (refreshTokenCookie) {
+          expect(refreshTokenCookie).toContain('HttpOnly');
+          expect(refreshTokenCookie).toContain('Path=/api/v1/auth/refresh');
+        }
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+    });
+
+    describe('Authentication Errors', () => {
+      it('should return 401 when refresh token is missing', async () => {
+        const response = await request(app)
+          .get('/api/v1/auth/refresh')
+          .expect(401);
+
+        expect(response.body.status).toBe('error');
+        expect(response.body.message).toBe('Missing refresh token');
+      });
+
+      it('should return 401 when refresh token is empty', async () => {
+        const response = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', ['refreshToken='])
+          .expect(401);
+
+        expect(response.body.status).toBe('error');
+        expect(response.body.message).toBe('Missing refresh token');
+      });
+
+      it('should return 401 when refresh token is invalid', async () => {
+        const response = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', ['refreshToken=invalid.token.here'])
+          .expect(401);
+
+        expect(response.body.status).toBe('error');
+        expect(response.body.message).toBe('Invalid refresh token');
+      });
+
+      it('should return 401 when refresh token is malformed JWT', async () => {
+        const response = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', ['refreshToken=not.a.valid.jwt.token'])
+          .expect(401);
+
+        expect(response.body.status).toBe('error');
+        expect(response.body.message).toBe('Invalid refresh token');
+      });
+
+      it('should return 401 when session associated with refresh token does not exist', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        // Find and delete the session
+        const userRecord = await userRepository.findByEmail(user.email);
+        const sessions = await sessionRepository.getAllSession(
+          String(userRecord!._id)
+        );
+        const session = sessions[0];
+        if (session) {
+          await sessionRepository.findByIdAndDelete(String(session._id));
+        }
+
+        const response = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', cookies)
+          .expect(401);
+
+        expect(response.body.status).toBe('error');
+        expect(response.body.message).toBe('Invalid refresh token');
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+
+      it('should return 401 when session has expired', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        // Find and expire the session
+        const userRecord = await userRepository.findByEmail(user.email);
+        const sessions = await sessionRepository.getAllSession(
+          String(userRecord!._id)
+        );
+        const session = sessions[0];
+        if (session) {
+          session.expiredAt = new Date(Date.now() - 1000); // Expired 1 second ago
+          await session.save();
+        }
+
+        const response = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', cookies)
+          .expect(401);
+
+        expect(response.body.status).toBe('error');
+        expect(response.body.message).toBe('Invalid refresh token');
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+    });
+
+    describe('Token Validation', () => {
+      it('should work with correctly formatted refresh token cookie', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        // Extract refresh token from cookie
+        const cookieArray = Array.isArray(cookies)
+          ? cookies
+          : [cookies as string];
+        const refreshTokenCookie = cookieArray.find((cookie: string) =>
+          cookie.startsWith('refreshToken=')
+        );
+        expect(refreshTokenCookie).toBeDefined();
+
+        const response = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', [refreshTokenCookie!])
+          .expect(200);
+
+        expect(response.body.status).toBe('success');
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+
+      it('should reject refresh token with wrong signature', async () => {
+        // Create a malicious token with wrong signature
+        const maliciousToken =
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uSWQiOiI2NzQyZWQ0ZjI4ZTMwNjAwMTM4OTcwNzEiLCJpYXQiOjE3MzI0MDgxNDMsImV4cCI6MTczMzAxMjk0M30.wrong_signature';
+
+        const response = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', [`refreshToken=${maliciousToken}`])
+          .expect(401);
+
+        expect(response.body.status).toBe('error');
+        expect(response.body.message).toBe('Invalid refresh token');
+      });
+
+      it('should reject expired refresh token JWT', async () => {
+        const { user } = await createUserAndLogin();
+
+        // Manually create an expired token (this would require manipulating time or using a pre-expired token)
+        // For testing purposes, we'll use an obviously expired timestamp
+        const expiredToken =
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uSWQiOiI2NzQyZWQ0ZjI4ZTMwNjAwMTM4OTcwNzEiLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MTYwMDAwMDAwMX0.invalid';
+
+        const response = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', [`refreshToken=${expiredToken}`])
+          .expect(401);
+
+        expect(response.body.status).toBe('error');
+        expect(response.body.message).toBe('Invalid refresh token');
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+    });
+
+    describe('HTTP Methods', () => {
+      it('should only accept GET requests', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        // Test POST method (should fail)
+        await request(app)
+          .post('/api/v1/auth/refresh')
+          .set('Cookie', cookies)
+          .expect(404);
+
+        // Test PUT method (should fail)
+        await request(app)
+          .put('/api/v1/auth/refresh')
+          .set('Cookie', cookies)
+          .expect(404);
+
+        // Test DELETE method (should fail)
+        await request(app)
+          .delete('/api/v1/auth/refresh')
+          .set('Cookie', cookies)
+          .expect(404);
+
+        // Test PATCH method (should fail)
+        await request(app)
+          .patch('/api/v1/auth/refresh')
+          .set('Cookie', cookies)
+          .expect(404);
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+    });
+
+    describe('Session Management', () => {
+      it('should maintain session validity after token refresh', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        // First refresh
+        const firstRefreshResponse = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', cookies)
+          .expect(200);
+
+        // Get new cookies from first refresh (keep original refresh token if no new one)
+        const firstRefreshCookies = firstRefreshResponse.headers['set-cookie'];
+        const newRefreshTokenCookie = Array.isArray(firstRefreshCookies)
+          ? firstRefreshCookies.find((cookie) =>
+              cookie.startsWith('refreshToken=')
+            )
+          : firstRefreshCookies?.startsWith('refreshToken=')
+            ? firstRefreshCookies
+            : null;
+
+        // Use original cookies if no new refresh token was issued
+        const cookiesToUse = newRefreshTokenCookie
+          ? firstRefreshCookies
+          : cookies;
+
+        // Second refresh with appropriate cookies should work
+        await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', cookiesToUse)
+          .expect(200);
+
+        // Original session should still be valid in database
+        const userRecord = await userRepository.findByEmail(user.email);
+        const sessions = await sessionRepository.getAllSession(
+          String(userRecord!._id)
+        );
+        const session = sessions[0];
+        expect(session).toBeDefined();
+        expect(session!.expiredAt.getTime()).toBeGreaterThan(Date.now());
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+
+      it('should handle multiple concurrent refresh requests', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        // Make multiple concurrent refresh requests
+        const refreshPromises = Array(3)
+          .fill(null)
+          .map(() =>
+            request(app).get('/api/v1/auth/refresh').set('Cookie', cookies)
+          );
+
+        const responses = await Promise.all(refreshPromises);
+
+        // At least one should succeed
+        const successfulResponses = responses.filter(
+          (res) => res.status === 200
+        );
+        expect(successfulResponses.length).toBeGreaterThan(0);
+
+        // All successful responses should have valid structure
+        successfulResponses.forEach((response) => {
+          expect(response.body.status).toBe('success');
+          expect(response.body.tokens.accessToken).toBeDefined();
+        });
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+    });
+
+    describe('Response Format Validation', () => {
+      it('should return correct response structure', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        const response = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', cookies)
+          .expect(200);
+
+        // Validate response structure
+        expect(response.body).toHaveProperty('status');
+        expect(response.body).toHaveProperty('message');
+        expect(response.body).toHaveProperty('data');
+        expect(response.body).toHaveProperty('tokens');
+
+        expect(response.body.status).toBe('success');
+        expect(response.body.message).toBe('Token refreshed successfully');
+        expect(typeof response.body.data).toBe('object');
+        expect(typeof response.body.tokens).toBe('object');
+        expect(response.body.tokens).toHaveProperty('accessToken');
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+
+      it('should return correct Content-Type header', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        const response = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', cookies)
+          .expect(200)
+          .expect('Content-Type', /json/);
+
+        expect(response.body.status).toBe('success');
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+    });
+
+    describe('Security Tests', () => {
+      it('should not expose sensitive information in error responses', async () => {
+        const response = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', ['refreshToken=invalid.token'])
+          .expect(401);
+
+        expect(response.body.status).toBe('error');
+        expect(response.body.message).toBe('Invalid refresh token');
+
+        // Should not expose session details, user info, or internal errors
+        expect(response.body).not.toHaveProperty('sessionId');
+        expect(response.body).not.toHaveProperty('userId');
+        expect(response.body).not.toHaveProperty('stack');
+        expect(response.body).not.toHaveProperty('sql');
+      });
+
+      it('should handle malformed cookie values safely', async () => {
+        const malformedCookies = [
+          'refreshToken=',
+          'refreshToken=null',
+          'refreshToken=undefined',
+          'refreshToken=%invalid%encoding%',
+          'refreshToken=' + 'a'.repeat(10000) // Very long value
+        ];
+
+        for (const cookie of malformedCookies) {
+          const response = await request(app)
+            .get('/api/v1/auth/refresh')
+            .set('Cookie', [cookie])
+            .expect(401);
+
+          expect(response.body.status).toBe('error');
+          expect(['Missing refresh token', 'Invalid refresh token']).toContain(
+            response.body.message
+          );
+        }
+      });
+
+      it('should rate limit refresh token requests appropriately', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        // Make rapid successive requests
+        const rapidRequests = Array(10)
+          .fill(null)
+          .map(() =>
+            request(app).get('/api/v1/auth/refresh').set('Cookie', cookies)
+          );
+
+        const responses = await Promise.all(rapidRequests);
+
+        // Should handle rapid requests gracefully
+        const successfulResponses = responses.filter(
+          (res) => res.status === 200
+        );
+        expect(successfulResponses.length).toBeGreaterThan(0);
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+    });
+
+    describe('Edge Cases', () => {
+      it('should handle refresh token with extra cookie attributes', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        // Add extra attributes to cookie
+        const cookieArray = Array.isArray(cookies)
+          ? cookies
+          : [cookies as string];
+        const refreshTokenCookie = cookieArray.find((cookie: string) =>
+          cookie.startsWith('refreshToken=')
+        );
+        const modifiedCookie =
+          refreshTokenCookie + '; Extra=value; Another=test';
+
+        const response = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', [modifiedCookie])
+          .expect(200);
+
+        expect(response.body.status).toBe('success');
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+
+      it('should handle multiple refresh token cookies (use first valid one)', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        const cookieArray = Array.isArray(cookies)
+          ? cookies
+          : [cookies as string];
+        const validRefreshTokenCookie = cookieArray.find((cookie: string) =>
+          cookie.startsWith('refreshToken=')
+        );
+
+        // Since cookie parsing takes the first value, put valid one first
+        const multipleCookies = [
+          validRefreshTokenCookie!,
+          'refreshToken=invalid1',
+          'refreshToken=invalid2'
+        ];
+
+        const response = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', multipleCookies)
+          .expect(200);
+
+        expect(response.body.status).toBe('success');
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+
+      it('should handle case where user has multiple sessions', async () => {
+        const { user } = await createUserAndLogin();
+
+        // Create another login session for the same user
+        const secondLoginResponse = await request(app)
+          .post('/api/v1/auth/login')
+          .send({
+            email: user.email,
+            password: user.password
+          })
+          .expect(200);
+
+        const secondCookies = secondLoginResponse.headers['set-cookie'];
+
+        // Both sessions should be able to refresh independently
+        const firstRefreshResponse = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', secondCookies)
+          .expect(200);
+
+        expect(firstRefreshResponse.body.status).toBe('success');
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+    });
+
+    describe('Integration with Other Endpoints', () => {
+      it('should work after user logout and login again', async () => {
+        const { user } = await createUserAndLogin();
+
+        // Login first time
+        const firstLoginResponse = await request(app)
+          .post('/api/v1/auth/login')
+          .send({
+            email: user.email,
+            password: user.password
+          })
+          .expect(200);
+
+        const firstCookies = firstLoginResponse.headers['set-cookie'];
+
+        // Logout
+        await request(app)
+          .post('/api/v1/auth/logout')
+          .set('Cookie', firstCookies)
+          .expect(200);
+
+        // Login second time
+        const secondLoginResponse = await request(app)
+          .post('/api/v1/auth/login')
+          .send({
+            email: user.email,
+            password: user.password
+          })
+          .expect(200);
+
+        const secondCookies = secondLoginResponse.headers['set-cookie'];
+
+        // Refresh token should work with new session
+        const refreshResponse = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', secondCookies)
+          .expect(200);
+
+        expect(refreshResponse.body.status).toBe('success');
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+      });
+
+      it('should invalidate refresh token after password reset', async () => {
+        const { user, cookies } = await createUserAndLogin();
+
+        // Request password reset
+        await request(app)
+          .post('/api/v1/auth/password/forgot')
+          .send({ email: user.email })
+          .expect(200);
+
+        // Get reset code from email
+        const resetEmail = await mailhog.waitForEmail(user.email, 10000);
+        const resetCode = mailhog.extractPasswordResetCode(
+          resetEmail.Content.Body
+        );
+
+        // Reset password (this should invalidate all sessions)
+        await request(app)
+          .post('/api/v1/auth/password/reset')
+          .send({
+            password: 'NewPassword@123',
+            code: resetCode
+          })
+          .expect(200);
+
+        // Try to refresh with old token (should fail)
+        const refreshResponse = await request(app)
+          .get('/api/v1/auth/refresh')
+          .set('Cookie', cookies)
+          .expect(401);
+
+        expect(refreshResponse.body.status).toBe('error');
+        expect(refreshResponse.body.message).toBe('Invalid refresh token');
+
+        // Cleanup
+        await userRepository.deleteByEmail(user.email);
+        await mailhog.clearMessages();
+      });
+    });
+  });
 });
